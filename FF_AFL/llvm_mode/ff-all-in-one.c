@@ -625,9 +625,10 @@ void target_generation(int argc, char **argv, u8 is_driver) {
     
     target_parm[parm_cnt ++] = alloc_printf("%s/afl_driver.o", obj_path); 
     // fuzzbench enforce c++ programs build with libc++ 
+    target_parm[parm_cnt ++] = "-lc++";
 
   }
-  // target_parm[parm_cnt ++] = "-lc++";
+  
   target_parm[parm_cnt ++] = "-lubsan"; 
 
   target_parm[parm_cnt ++] = (u8*) "-ldl";
