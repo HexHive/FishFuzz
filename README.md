@@ -1,7 +1,7 @@
 ## FishFuzz: Throwing larger net to catch deeper bugs
 
 FishFuzz is an input prioritization strategy that efficiently direct fuzzing towards the promising
-sanitizer targets. We implement the FishFuzz prototype based on [AFL](https://github.com/google/afl) and AFL++(https://github.com/AFLplusplus/AFLplusplus/).
+sanitizer targets. We implement the FishFuzz prototype based on [AFL](https://github.com/google/afl) and [AFL++](https://github.com/AFLplusplus/AFLplusplus/).
 
 ## Published Work
 
