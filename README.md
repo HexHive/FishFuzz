@@ -8,11 +8,11 @@ sanitizer targets. We implement the FishFuzz prototype based on [AFL](https://gi
 FishFuzz is accepted in USENIX Security Symposium 2023 and will occur with the paper accepted in Winter cycle.
 
 
-## How to build FishFuzz
+## How To Build FishFuzz
 
 We provide a dockerfile for both FF_AFL and FF_AFL++. It's recommended to use in Ubuntu 20.04 and llvm-12.
 
-## how to compile & run
+## How To Compile & Run
 
 The simplest way is using the wrapper `ff-all-in-one`, point `CC/CXX` to `ff-all-in-one/++`, set CFLAGS with ASan or UBSan, then set `FF_DRIVER_NAME` with the programs you want to fuzz (e.g. for libxml2, we want to fuzz xmllint and you should set `FF_DRIVER_NAME` as xmllint but not libxml2 ) then just follow the origin process.
 
@@ -26,7 +26,7 @@ The `ff-all-in-one` can be roughly devided into several steps:
 
 run the `afl-fuzz` with additional environment variable `TMP_DIR` (generated in step 3)), which provide static distance map and sanitized function list.
 
-### examples for wrapper compilation
+### Examples For Wrapper Usage
 
 ```
 mkdir -p /benchmark/source/ && cd /benchmark/source/
@@ -46,7 +46,7 @@ TMP_DIR=TEMP_mujs $PREFUZZ/afl-fuzz -i /path/to/in -o /path/to/out -m none -t 10
 ```
 
 
-### examples for manual compilation
+### Examples For Manual Compilation
 
 ```
 cd /benchmark/source/
@@ -90,7 +90,7 @@ $CC $ADDITIONAL_FUNC $BC_PATH$FF_DRIVER_NAME.final.bc -o $FF_DRIVER_NAME.fuzz $E
 TMP_DIR=$TMP_DIR $PREFUZZ/afl-fuzz -i /path/to/in -o /path/to/out -m none -t 1000+ -- ./$FF_DRIVER_NAME.fuzz @@
 ```
 
-## Reproduce the results in the paper
+## Reproduce The Results In The Paper
 
 * we attach the raw data of the evaluation in `paper` folder as promised, and we'll dockerize some of the evaluation process to allow the researchers to easily reproduce our evaluation results.
 
@@ -106,7 +106,7 @@ cull_queue (switch between following):
   cull_queue_explore (pick seeds from) -> update_bug_scoring
 ```
 
-## Hints
+## Tips
 
 FishFuzz prune the numbers of seeds selected, hence its' recommended to enable deterministic stage in default. In our evaluation we enable all fuzzers' deterministic stage.
 
@@ -140,4 +140,4 @@ But this intergration is still experimental.
 
 ## Contact
 
-If you have any questions & concerns, feel free to contact me via kdsjzh@gmail.com.
+If you have any questions & find any bugs, feel free to contact me via kdsjzh@gmail.com.

@@ -6,7 +6,7 @@ import argparse
 
 data = [
     #id, prog, commandline, seed_folder
-    [1,"tic","-o /dev/null","txt"],
+    [1,"tic","-o /dev/null @@","txt"],
     [2,"cflow","@@","c"],
     [3,"mujs","@@","js"],
     [4,"mutool","poster @@","pdf"],

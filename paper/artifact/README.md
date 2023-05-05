@@ -10,6 +10,8 @@ and campaign results will be write to `$PWD/runtime/out`.
 
 ## How to Start
 
+Step 0: Step to two-stage dir (or maybe other dir if we plan to dockerize more evaluations) first :)
+
 Step 1: Build docker image with all fuzzers and target
 ```
 docker build -t fishfuzz:artifact .
@@ -29,7 +31,7 @@ docker run -dt -v current_dir:/work --name ffafl_cflow --cpuset-cpus 0 --user $(
 ....
 ```
 
-Step 4: we didn't add kill in the script, so it's required to stop it after 24h manually. Copy and generate the coverage/bug report with the given scipts(todo).
+Step 4: we didn't add kill in the script, so it's required to stop it manually after 24h. Copy and generate the coverage/bug report with the given scipts(todo).
 
 ```
 docker rm -f $(docker ps -a -q -f "ancestor=fishfuzz:artifact")
