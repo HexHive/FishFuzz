@@ -42,14 +42,18 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 
-
+#define AFL_DRIVER_LIB "/libAFL.a"
+#define FF_TEMP_DIR    "/tmp/fish++"
+#define MAX_ARG_NUMS   1024
 
 
 u8 *obj_path, *ff_driver_name, *ff_driver_path, *tmp_path;
 u8 *log_path;
 // char ** ff_driver_args;
-FILE *plog;
-int log_fd;
+FILE *plog, *nlog;
+int log_fd, null_fd;
+
+u8 has_asan = 0, has_ubsan = 0;
 
 
 /* Dry run for dis_calc to avoid it broken or not exist */
@@ -170,7 +174,7 @@ u8 open_log(u8* driver_name) {
 
   u8  write_log = 1;
 
-  u8* ff_dir = alloc_printf("/tmp/fishfuzz/");
+  u8* ff_dir = alloc_printf(FF_TEMP_DIR);
   if (access(ff_dir, F_OK) == -1) {
     
     if (mkdir(ff_dir, 0700)) PFATAL("Unable to create log dir '%s'", ff_dir);
@@ -209,23 +213,26 @@ void preliminary_check(u8* argv0) {
 
 }
 
-void fork_and_exec(u8 **parm, u8 ff_steps, u8 is_cxx, u8 is_linking) {
+void fork_and_exec(u8 **parm, u8 ff_steps, u8 is_cxx, u8 is_linking, u8 no_output) {
 
   if (ff_steps == 1) write(log_fd, "---------------FF Compilation-------------\n", 45);
 
-  for (u32 i = 0; parm[i]; i ++) printf("%s ", parm[i]);
-  printf("\n");
+  // for (u32 i = 0; parm[i]; i ++) printf("%s ", parm[i]);
+  // printf("\n");
 
 
   /* Start Execution */
   pid_t pid = fork();
 
-  if (pid == -1) FATAL("Oops, failed to fork.");
+  if (pid == -1) PFATAL("Oops, failed to fork.");
   else if (pid == 0) {
       
 
     /* close stdout to disable dryrun's output, use log file later */
-    if (!ff_steps) dup2(log_fd, 1);
+    /* for ld check, should disable output redirection */
+    nlog = fopen(log_path, "a");
+    null_fd = fileno(nlog);
+    if (no_output) dup2(null_fd, 1);
     execvp(parm[0], (char**)parm);
 
     PFATAL("Oops, compilation failed!");
@@ -240,16 +247,18 @@ void fork_and_exec(u8 **parm, u8 ff_steps, u8 is_cxx, u8 is_linking) {
     if (is_cxx) OKF("ff-all-in-one++ %s...", (is_linking) ? (u8*)"linking" : (u8*)"compiling");
     else OKF("ff-all-in-one %s...", (is_linking) ? (u8*)"linking" : (u8*)"compiling");
   } else {
-    OKF("ff-all-in-one processing ff steps %d...", ff_steps);
+    // for step 0, which is available for all objects, be quite
+    if (ff_steps) OKF("ff-all-in-one processing ff steps %d...", ff_steps);
   }
 
 }
 
+
 void edit_and_exec(int argc, char **argv) {
 
-  u8 **new_parm = (u8 **)malloc(sizeof(u8*) * 128 + 1);
+  u8 **new_parm = (u8 **)malloc(sizeof(u8*) * MAX_ARG_NUMS + 1);
 
-  u8 is_linking = 0, is_obj = 0, has_asan = 0, is_cxx = 0;
+  u8 is_linking = 0, is_obj = 0, is_cxx = 0;
   
   for (u32 i = 1; i < argc; i ++) {
     
@@ -258,7 +267,10 @@ void edit_and_exec(int argc, char **argv) {
     if (!strcmp(argv[i], "-c")) {is_obj = 1; is_linking = 0;}
 
     if (!strcmp(argv[i], "-fsanitize=address")) has_asan = 1;
-  
+
+    // in fuzzbench, ubsan will start with arrary checks, match more case later....
+    if (!strcmp(argv[i], "-fsanitize=array-bounds")) has_ubsan = 1;
+
   }
 
   u32 new_parm_cnt = 0;
@@ -278,9 +290,11 @@ void edit_and_exec(int argc, char **argv) {
   
   }
 
-  if (!has_asan) {
+  if (!has_asan && !has_ubsan) {
     
-    new_parm[new_parm_cnt ++] = (u8*)"-fsanitize=address";
+    // new_parm[new_parm_cnt ++] = (u8*)"-fsanitize=address";
+    // in fuzzbench, if there are no asan, at least instrument ubsan to make sure there are labels to direct our fuzzers.
+    new_parm[new_parm_cnt ++] = (u8*) "-fsanitize=undefined";
 
   }
   
@@ -301,14 +315,14 @@ void edit_and_exec(int argc, char **argv) {
 
 
   /* Start Execution */
-  fork_and_exec(new_parm, 0, is_cxx, is_linking);
+  fork_and_exec(new_parm, 0, is_cxx, is_linking, 0);
 
 }
 
 u8* get_asan_library() {
 
   // find `llvm-config --libdir` -name libclang_rt.asan-*.a|head -n 1
-  FILE* fp = popen("find `llvm-config --libdir` -name libclang_rt.asan-*.a", "r");
+  FILE* fp = popen("find `llvm-config --libdir` -name libclang_rt.asan-*.a|grep `uname -m`", "r");
   u8* asan_lib_path = (u8*)malloc(sizeof(u8) * 256);
 
   if (fp) {
@@ -331,6 +345,78 @@ u8* get_asan_library() {
   PFATAL("Cannot find asan static library : %s", strerror(errno));
 
 }
+
+u8 is_libfuzz_driver(int argc, char **argv) {
+
+  for (u32 i = 1; i < argc - 1; i ++) {
+
+    if (!strstr(argv[i], AFL_DRIVER_LIB)) {
+
+      return 1;
+
+    }
+
+  }
+  
+  return 0;
+
+}
+
+/* 
+  In LTO mode, if the project source have asm code, there will be 
+  elf object file generated in the static library, therefore we need to 
+  linking these elf object file in the final target generated, these 
+  object file can be found if we decompress the .a compress, aka *.asm.o
+*/
+
+u8* create_obj_library(u8* lib_path) {
+
+  u8* ff_lib_dir = alloc_printf("%s/lib", FF_TEMP_DIR);
+  if (access(ff_lib_dir, F_OK) == -1) {
+    
+    u8 err = mkdir(ff_lib_dir, 0700);
+    if (err && err != EEXIST) PFATAL("Unable to create log dir '%s'", ff_lib_dir);
+  
+  }
+
+
+  // ar -x lib_path --output=ff_lib_dir
+  // all output with format *.asm.o are obj file, while *.c.o are bitcode
+  u8 **new_parm = (u8 **)malloc(sizeof(u8*) * MAX_ARG_NUMS + 1);
+  u32 parm_cnt = 0;
+  new_parm[parm_cnt ++] = (u8*)"ar";
+  new_parm[parm_cnt ++] = (u8*)"x";
+  new_parm[parm_cnt ++] = lib_path;
+  new_parm[parm_cnt ++] = alloc_printf("--output=%s", ff_lib_dir);
+  new_parm[parm_cnt ++] = NULL;
+  fork_and_exec(new_parm, 0, 0, 0, 1);
+
+  // ar rvs lib_path.obj.a ff_lib_dir/*.asm.o
+  u8 *dst_obj_lib = alloc_printf("%s.obj.a", lib_path);
+
+  u8 *cmd_ar = alloc_printf("ar rvs %s `ls %s/*.asm.o`", dst_obj_lib, ff_lib_dir);
+  FILE *fp = popen(cmd_ar, "r");
+  pclose(fp);
+
+
+  if (access(dst_obj_lib, F_OK) == -1) {
+    
+    // printf("library not exists.\n");
+    dst_obj_lib = NULL;
+
+  }
+
+  // rm $FF_TEMP_DIR/lib/*
+  u8 *cmd_rm = alloc_printf("rm %s/*", ff_lib_dir);
+  fp = popen(cmd_rm, "r");
+  pclose(fp);
+
+  free(new_parm);
+
+  return dst_obj_lib;
+
+}
+
 
 /* check if it's generating target binary, saving the argv as well */
 u8 is_target_gen(int argc, char **argv) {
@@ -408,9 +494,9 @@ u8 is_target_gen(int argc, char **argv) {
 /* generating log files in temporary dir and run pass */
 void preprocessing() {
 
-  u8 **pass_parm1 = (u8 **)malloc(sizeof(u8*) * 128 + 1),
-     **pass_parm2 = (u8 **)malloc(sizeof(u8*) * 128 + 1),
-     **pass_parm3 = (u8 **)malloc(sizeof(u8*) * 128 + 1);
+  u8 **pass_parm1 = (u8 **)malloc(sizeof(u8*) * MAX_ARG_NUMS + 1),
+     **pass_parm2 = (u8 **)malloc(sizeof(u8*) * MAX_ARG_NUMS + 1),
+     **pass_parm3 = (u8 **)malloc(sizeof(u8*) * MAX_ARG_NUMS + 1);
   
   u32 parm1_cnt = 0, parm2_cnt = 0, parm3_cnt = 0;
 
@@ -427,7 +513,7 @@ void preprocessing() {
   pass_parm1[parm1_cnt ++] = (u8*) "-o";
   pass_parm1[parm1_cnt ++] = alloc_printf("%s.rename.bc", ff_driver_path);
   pass_parm1[parm1_cnt] = NULL;
-  fork_and_exec(pass_parm1, 1, 0, 0);
+  fork_and_exec(pass_parm1, 1, 0, 0, 0);
 
   // -load $FISHFUZZ/SanitizerCoveragePCGUARD.so -cov $BC_PATH$PROJ_NAME.rename.bc -o $BC_PATH$PROJ_NAME.cov.bc
   pass_parm2[parm2_cnt ++] = (u8*) "opt";
@@ -438,7 +524,7 @@ void preprocessing() {
   pass_parm2[parm2_cnt ++] = (u8*) "-o";
   pass_parm2[parm2_cnt ++] = alloc_printf("%s.cov.bc", ff_driver_path);
   pass_parm2[parm2_cnt] = NULL;
-  fork_and_exec(pass_parm2, 2, 0, 0);
+  fork_and_exec(pass_parm2, 2, 0, 0, 0);
 
   // -load $FISHFUZZ/afl-fish-pass.so -test -outdir=$TMP_DIR -pmode=aonly $BC_PATH$PROJ_NAME.rename.bc -o $BC_PATH$PROJ_NAME.temp.bc
   pass_parm3[parm3_cnt ++] = (u8*) "opt";
@@ -451,7 +537,7 @@ void preprocessing() {
   pass_parm3[parm3_cnt ++] = (u8*) "-o";
   pass_parm3[parm3_cnt ++] = alloc_printf("%s.temp.bc", ff_driver_path);
   pass_parm3[parm3_cnt] = NULL;
-  fork_and_exec(pass_parm3, 3, 0, 0);
+  fork_and_exec(pass_parm3, 3, 0, 0, 0);
   
   free(pass_parm1);
   free(pass_parm2);
@@ -463,9 +549,9 @@ void preprocessing() {
 /* generating cg and calculating distance via python script */
 void distance_calc() {
 
-  u8 **cg_parm1 = (u8 **)malloc(sizeof(u8*) * 128 + 1),
-     **cg_parm2 = (u8 **)malloc(sizeof(u8*) * 128 + 1),
-     **distance_parm = (u8 **)malloc(sizeof(u8*) * 128 + 1);
+  u8 **cg_parm1 = (u8 **)malloc(sizeof(u8*) * MAX_ARG_NUMS + 1),
+     **cg_parm2 = (u8 **)malloc(sizeof(u8*) * MAX_ARG_NUMS + 1),
+     **distance_parm = (u8 **)malloc(sizeof(u8*) * MAX_ARG_NUMS + 1);
   u32 dist_parm_cnt = 0, cg_parm_cnt = 0;
 
   ACTF("Now calculating static distance ...");
@@ -475,28 +561,28 @@ void distance_calc() {
   cg_parm1[cg_parm_cnt ++] = (u8*)"-dot-callgraph";
   cg_parm1[cg_parm_cnt ++] = alloc_printf("%s.cov.bc", ff_driver_path);
   cg_parm1[cg_parm_cnt] = NULL;
-  fork_and_exec(cg_parm1, 4, 0, 0); cg_parm_cnt = 0;
+  fork_and_exec(cg_parm1, 4, 0, 0, 1); cg_parm_cnt = 0;
   
   cg_parm2[cg_parm_cnt ++] = (u8*)"mv";
   cg_parm2[cg_parm_cnt ++] = alloc_printf("%s.cov.bc.callgraph.dot", ff_driver_path);
   cg_parm2[cg_parm_cnt ++] = alloc_printf("%s/dot-files/callgraph.dot", tmp_path);
   cg_parm2[cg_parm_cnt] = NULL;
-  fork_and_exec(cg_parm2, 4, 0, 0);
+  fork_and_exec(cg_parm2, 4, 0, 0, 0);
 
   distance_parm[dist_parm_cnt ++] = (u8*)"python3";
   distance_parm[dist_parm_cnt ++] = alloc_printf("%s/scripts/gen_initial_distance.py", obj_path);
   distance_parm[dist_parm_cnt ++] = tmp_path;
   distance_parm[dist_parm_cnt] = NULL;
-  fork_and_exec(distance_parm, 4, 0, 0);
+  fork_and_exec(distance_parm, 4, 0, 0, 0);
 
   free(distance_parm);
   free(cg_parm1);
 
 }
 
-void target_generation(int argc, char **argv) {
+void target_generation(int argc, char **argv, u8 is_driver) {
 
-  u8 **target_parm = (u8 **)malloc(sizeof(u8*) * 128 + 1);
+  u8 **target_parm = (u8 **)malloc(sizeof(u8*) * MAX_ARG_NUMS + 1);
   u32 parm_cnt = 0;
 
   ACTF("Now generating final target ...");
@@ -524,18 +610,59 @@ void target_generation(int argc, char **argv) {
   // searching for additional library
   for (int i = 0; i < argc; i ++) {
 
-    // start with -lxxx
-    if (strstr(argv[i], (u8*)"-l") == argv[i]) target_parm[parm_cnt ++] = argv[i];
+    // start with -lxxx or -L/path/to/lib
+    if (strstr(argv[i], (u8*)"-l") == argv[i]) {
+      
+      // we'll include driver manually instead of linking the given libFuzzingEngine.a to avoid multiple link
+      if (strstr(argv[i], (u8*)"-lFuzzingEngine") != argv[i]) target_parm[parm_cnt ++] = argv[i];
+      else is_driver = 1;
+
+    }
+    if (strstr(argv[i], (u8*)"-L") == argv[i]) target_parm[parm_cnt ++] = argv[i];
+
+    // some programs might link a library that is not in lto format, in that case 
+    // the final.bc didn't contain corresponding functions and need to link it as well.
+    if (strstr(argv[i], (u8*)".so")) target_parm[parm_cnt ++] = argv[i];
+
+    if (strstr(argv[i], (u8*)".a")) {
+
+      // don't include libAFL.a, since it has repeated function defination
+      if (!strstr(argv[i], (u8*)AFL_DRIVER_LIB)) {
+        
+        // if there are asm (obj) in static library, create a new library with these objs
+        // and linking together.
+        u8 *obj_lib = create_obj_library(argv[i]);
+        if (obj_lib) target_parm[parm_cnt ++] = obj_lib;
+
+      }
+
+    } 
     
   }
-  // add asan static library, together with its runtime library -ldl -lm -lpthread
-  target_parm[parm_cnt ++] = (u8*) "-ldl";
-  target_parm[parm_cnt ++] = (u8*) "-lm";
-  target_parm[parm_cnt ++] = (u8*) "-lpthread";
-  target_parm[parm_cnt ++] = get_asan_library();
+  // include afl_driver.o only
+  if (is_driver) { 
+    
+    target_parm[parm_cnt ++] = alloc_printf("%s/afl_driver.o", obj_path); 
+    // fuzzbench enforce c++ programs build with libc++ 
+    target_parm[parm_cnt ++] = "-lc++";
+
+  }
+
+  if (has_ubsan) target_parm[parm_cnt ++] = "-lubsan"; 
+
+  // for asan, if we use -lasan, we need to set LD_PRELOAD, therefore we link manually
+  if (has_asan) {
+
+    target_parm[parm_cnt ++] = (u8*) "-ldl";
+    target_parm[parm_cnt ++] = (u8*) "-lm";
+    target_parm[parm_cnt ++] = (u8*) "-lpthread";  
+    target_parm[parm_cnt ++] = get_asan_library();
+  
+  }
+
   
   target_parm[parm_cnt] = NULL;
-  fork_and_exec(target_parm, 3, 0, 0);
+  fork_and_exec(target_parm, 3, 0, 0, 0);
 
   free(target_parm);
 
@@ -590,12 +717,13 @@ int main(int argc, char** argv) {
 
     // OKF("Now we're generating target driver in %s.", ff_driver_path);
     // for llvm 14 or higher, we need to add -enable-new-pm=0 argument for opt 
+    u8 is_driver = is_libfuzz_driver(argc, argv);
 
     preprocessing();
     distance_calc();
-    target_generation(argc, argv);
+    target_generation(argc, argv, is_driver);
 
-  }  
+  }
 
   return 0;
 

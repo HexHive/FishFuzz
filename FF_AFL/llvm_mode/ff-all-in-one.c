@@ -54,6 +54,8 @@ u8 *log_path;
 FILE *plog, *nlog;
 int log_fd, null_fd;
 
+u8 has_asan = 0, has_ubsan = 0;
+
 
 /* Dry run for dis_calc to avoid it broken or not exist */
 
@@ -256,7 +258,7 @@ void edit_and_exec(int argc, char **argv) {
 
   u8 **new_parm = (u8 **)malloc(sizeof(u8*) * MAX_ARG_NUMS + 1);
 
-  u8 is_linking = 0, is_obj = 0, has_asan = 0, has_ubsan =0, is_cxx = 0;
+  u8 is_linking = 0, is_obj = 0, is_cxx = 0;
   
   for (u32 i = 1; i < argc; i ++) {
     
@@ -265,6 +267,9 @@ void edit_and_exec(int argc, char **argv) {
     if (!strcmp(argv[i], "-c")) {is_obj = 1; is_linking = 0;}
 
     if (!strcmp(argv[i], "-fsanitize=address")) has_asan = 1;
+
+    // in fuzzbench, ubsan will start with arrary checks, match more case later....
+    if (!strcmp(argv[i], "-fsanitize=array-bounds")) has_ubsan = 1;
 
   }
 
@@ -285,7 +290,7 @@ void edit_and_exec(int argc, char **argv) {
   
   }
 
-  if (!has_asan) {
+  if (!has_asan && !has_ubsan) {
     
     // new_parm[new_parm_cnt ++] = (u8*)"-fsanitize=address";
     // in fuzzbench, if there are no asan, at least instrument ubsan to make sure there are labels to direct our fuzzers.
@@ -394,7 +399,7 @@ u8 is_libfuzz_driver(int argc, char **argv) {
 
   for (u32 i = 1; i < argc - 1; i ++) {
 
-    if (!strcmp(argv[i], AFL_DRIVER_LIB)) {
+    if (!strstr(argv[i], AFL_DRIVER_LIB)) {
 
       return 1;
 
@@ -607,17 +612,16 @@ void target_generation(int argc, char **argv, u8 is_driver) {
     if (strstr(argv[i], (u8*)".a")) {
 
       // don't include libAFL.a, since it has repeated function defination
-      if (!strstr(argv[i], (u8*)"/libAFL.a")) {
+      if (!strstr(argv[i], (u8*)AFL_DRIVER_LIB)) {
         
         // if there are asm (obj) in static library, create a new library with these objs
         // and linking together.
         u8 *obj_lib = create_obj_library(argv[i]);
         if (obj_lib) target_parm[parm_cnt ++] = obj_lib;
 
-      }
+      } else is_driver = 1;
 
     } 
-
     
   }
   // include afl_driver.o only
@@ -629,18 +633,19 @@ void target_generation(int argc, char **argv, u8 is_driver) {
 
   }
   
-  target_parm[parm_cnt ++] = "-lubsan"; 
 
-  target_parm[parm_cnt ++] = (u8*) "-ldl";
-  target_parm[parm_cnt ++] = (u8*) "-lm";
-  target_parm[parm_cnt ++] = (u8*) "-lpthread";
-  
-  // add asan static library, together with its runtime library flags if it use asan
-  if (getenv(UBSAN_ENV_VAR) == NULL) { 
+  if (has_ubsan) target_parm[parm_cnt ++] = "-lubsan"; 
 
+  // for asan, if we use -lasan, we need to set LD_PRELOAD, therefore we link manually
+  if (has_asan) {
+
+    target_parm[parm_cnt ++] = (u8*) "-ldl";
+    target_parm[parm_cnt ++] = (u8*) "-lm";
+    target_parm[parm_cnt ++] = (u8*) "-lpthread";  
     target_parm[parm_cnt ++] = get_asan_library();
-
+  
   }
+
 
   target_parm[parm_cnt] = NULL;
   fork_and_exec(target_parm, 3, 0, 0, 0);
