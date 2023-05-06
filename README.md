@@ -10,7 +10,9 @@ FishFuzz is accepted in USENIX Security Symposium 2023 and will occur with the p
 
 ## How To Build FishFuzz
 
-We provide a dockerfile for both FF_AFL and FF_AFL++. It's recommended to use in Ubuntu 20.04 and llvm-12.
+We provide a dockerfile for both FF_AFL and FF_AFL++, which can be found in `FF_AFL(++)/docker/Dockerfile`
+
+It's recommended to use in Ubuntu 20.04 and llvm-12.
 
 ## How To Compile & Run
 
@@ -92,7 +94,7 @@ TMP_DIR=$TMP_DIR $PREFUZZ/afl-fuzz -i /path/to/in -o /path/to/out -m none -t 100
 
 ## Reproduce The Results In The Paper
 
-* we attach the raw data of the evaluation in `paper` folder as promised, and we'll dockerize some of the evaluation process to allow the researchers to easily reproduce our evaluation results.
+We attach the raw data of the evaluation in `paper` folder as promised, and we'll dockerize some of the evaluation process to allow the researchers to easily reproduce our evaluation results. Please follow the guide in `paper/artifact/README.md`. The coverage and bug analysis scripts are not available yet, will be released soon.
 
 
 ## Main Modifications

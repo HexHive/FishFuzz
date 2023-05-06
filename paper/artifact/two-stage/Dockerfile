@@ -39,7 +39,12 @@ RUN apt-get update && \
     apt-get install libboost-all-dev libjsoncpp-dev libgraphviz-dev pkg-config libglib2.0-dev -y
 
 # build FF_AFL
-COPY FF_AFL /FishFuzz 
+# COPY FF_AFL /FishFuzz 
+RUN git clone https://github.com/HexHive/FishFuzz /ff_repo && \
+    mv /ff_repo/FF_AFL /FishFuzz && mv /ff_repo/FF_AFL++ /Fish++ && \
+    mv $(find /ff_repo/paper/ -type d -name build) /build_script && \
+    rm -r /ff_repo
+
 RUN  cd /FishFuzz/ && \
      unset CFLAGS CXXFLAGS && \
      make -C llvm_mode && \
@@ -47,7 +52,7 @@ RUN  cd /FishFuzz/ && \
      CC=gcc CXX=g++ AFL_NO_X86=1 make 
 
 # build FF_AFL++
-COPY FF_AFL++ /Fish++
+# COPY FF_AFL++ /Fish++
 RUN  cd /Fish++ && \
     unset CFLAGS CXXFLAGS && \
     export CC=gcc AFL_NO_X86=1 && \
@@ -92,7 +97,7 @@ RUN apt update && apt install -y libgc-dev libreadline-dev \
     mesa-common-dev libglu1-mesa-dev freeglut3-dev libxrandr-dev libxi-dev 
 
 # build all
-COPY build /build_script
+# COPY build /build_script
 
 RUN chmod +x /build_script/*.sh 
 

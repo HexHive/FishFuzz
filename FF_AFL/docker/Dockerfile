@@ -38,7 +38,10 @@ ENV LD_LIBRARY_PATH="/llvm/build/lib/x86_64-unknown-linux-gnu/c++/:${LD_LIBRARY_
 RUN apt-get update && \
     apt-get install libboost-all-dev libjsoncpp-dev libgraphviz-dev pkg-config libglib2.0-dev -y
 
-COPY FishFuzz /FishFuzz 
+# COPY FishFuzz /FishFuzz 
+RUN git clone https://github.com/HexHive/FishFuzz /ff_repo && \
+    mv /ff_repo/FF_AFL /FishFuzz && rm -r /ff_repo
+
 RUN  cd /FishFuzz/ && \
      CFLAGS="" CXXFLAGS="" make -C llvm_mode && \
      CFLAGS="" CXXFLAGS="" CC=gcc CXX=g++ make -C dyncfg && \

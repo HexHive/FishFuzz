@@ -48,5 +48,5 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument("-b", help="basedir to share the evaluation results ")
   args = parser.parse_args()
-  check_out_dir(args.c)
+  check_out_dir(args.b)
   docker_run_all_trial(args.b)

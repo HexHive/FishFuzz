@@ -39,6 +39,9 @@ RUN apt-get update && \
     apt-get install libboost-all-dev libjsoncpp-dev libgraphviz-dev \
     pkg-config libglib2.0-dev gcc-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //')-plugin-dev -y
 
-COPY Fish++ /Fish++ 
-RUN  cd /Fish++/ && NO_NYX=1 make source-only
+# COPY Fish++ /Fish++ 
+RUN git clone https://github.com/HexHive/FishFuzz /ff_repo && \
+    mv /ff_repo/FF_AFL++ /Fish++ && rm -r /ff_repo
+
+RUN cd /Fish++/ && NO_NYX=1 make source-only
 
