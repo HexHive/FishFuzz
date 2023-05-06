@@ -43,5 +43,5 @@ RUN apt-get update && \
 RUN git clone https://github.com/HexHive/FishFuzz /ff_repo && \
     mv /ff_repo/FF_AFL++ /Fish++ && rm -r /ff_repo
 
-RUN cd /Fish++/ && NO_NYX=1 make source-only
+RUN cd /Fish++/ && NO_NYX=1 make source-only && chmod +x scripts/*.py 
 

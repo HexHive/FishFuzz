@@ -49,7 +49,8 @@ RUN  cd /FishFuzz/ && \
      unset CFLAGS CXXFLAGS && \
      make -C llvm_mode && \
      CC=gcc CXX=g++ make -C dyncfg && \
-     CC=gcc CXX=g++ AFL_NO_X86=1 make 
+     CC=gcc CXX=g++ AFL_NO_X86=1 make && \
+     chmod +x scripts/*.py 
 
 # build FF_AFL++
 # COPY FF_AFL++ /Fish++
@@ -59,7 +60,7 @@ RUN  cd /Fish++ && \
     make clean && \
     rm -f ff-all-in-one ff-all-in-one++ && \
     PYTHON_INCLUDE=/ make && \
-    make -C dyncfg
+    make -C dyncfg && chmod +x scripts/*.py 
 
 # build AFL++
 RUN git clone https://github.com/AFLplusplus/AFLplusplus /AFL++ && \
@@ -75,7 +76,7 @@ RUN git clone https://github.com/google/afl /AFL && \
     sed -i 's/id\:%06llu\,sig\:%02u\,%s/id\:%06llu\,sig\:%02u\,%s\,%lld/g' `ls afl-fuzz.c` && \
     sed -i 's/describe_op(0)/describe_op(0), get_cur_time() - start_time/g' `ls afl-fuzz.c` && \
     sed -i 's/describe_op(hnb)/describe_op(hnb), get_cur_time() - start_time/g' `ls afl-fuzz.c` && \
-    make -j && make -C llvm_mode 
+    make -j && make -C llvm_mode
 
 
 # prepare source package

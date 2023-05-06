@@ -45,7 +45,8 @@ RUN git clone https://github.com/HexHive/FishFuzz /ff_repo && \
 RUN  cd /FishFuzz/ && \
      CFLAGS="" CXXFLAGS="" make -C llvm_mode && \
      CFLAGS="" CXXFLAGS="" CC=gcc CXX=g++ make -C dyncfg && \
-     CFLAGS="" CXXFLAGS="" CC=gcc CXX=g++ AFL_NO_X86=1 make 
+     CFLAGS="" CXXFLAGS="" CC=gcc CXX=g++ AFL_NO_X86=1 make && \
+     chmod +x scripts/*.py 
 
 # Use afl_driver.cpp from LLVM as our fuzzing library.
 RUN wget https://raw.githubusercontent.com/llvm/llvm-project/5feb80e748924606531ba28c97fe65145c65372e/compiler-rt/lib/fuzzer/afl/afl_driver.cpp -O /FishFuzz/afl_driver.cpp && \
