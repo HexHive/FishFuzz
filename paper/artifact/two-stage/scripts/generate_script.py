@@ -31,7 +31,7 @@ def write_script(fuzzer, dir, with_dflag = '-D'):
         tmp_env = "TMP_DIR=/binary/%s/TEMP_%s " % (fuzzer, prog)
         cmd = tmp_env + cmd
       if prog == 'tic':
-        tmp_env = "service cron start\ncrontab -e /work/fuzz_script/clear_terminfo.cron\n"
+        tmp_env = "service cron start\ncrontab /work/fuzz_script/clear_terminfo.cron\n"
         cmd = tmp_env + cmd
       f.write(cmd)
   os.system('chmod +x %s/*.sh' % (dir))
