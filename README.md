@@ -117,9 +117,9 @@ FishFuzz prune the numbers of seeds selected, hence its' recommended to enable d
 
 Q: Could FishFuzz work with targets other than Sanitizer?
 
-A: Yes, you can modify the pass to change the defination of "target". Currently we only tested ASan and UBSan. For other targets, you might need to fine-tune the hyperparameter to achieve better results.
+A: Yes, you can modify the pass to change the definition of "target". Currently we only tested ASan and UBSan. For other targets, you might need to fine-tune the hyperparameter to achieve better results.
 
-Q: what if some cfg calculation failed? 
+Q: what if some cfg calculation failed?
 
 A: It's fine. some cxx function name are too long and therefore the cfg calculation might fail, but it would not harm. It's on our todo list. But if cg calculation failed, the compilation process will be broken.
 
