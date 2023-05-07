@@ -95,7 +95,8 @@ RUN mkdir -p /benchmark/source/ /binary/afl \
 
 # package requirement for the w3m and mupdf
 RUN apt update && apt install -y libgc-dev libreadline-dev \
-    mesa-common-dev libglu1-mesa-dev freeglut3-dev libxrandr-dev libxi-dev 
+    mesa-common-dev libglu1-mesa-dev freeglut3-dev libxrandr-dev libxi-dev \
+    cron 
 
 # build all
 # COPY build /build_script

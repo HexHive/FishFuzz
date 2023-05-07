@@ -36,7 +36,28 @@ Step 4: we didn't add kill in the script, so it's required to stop it manually a
 
 ```
 docker rm -f $(docker ps -a -q -f "ancestor=fishfuzz:artifact")
+sudo chown -R $(id -u):$(id -g) runtime/out
+
 # copy evaluation results to results folder
 mkdir results/
 python3 scripts/copy_results.py -s "$PWD/runtime" -d "$PWD/results/" -r 0
+
+# create a new container and copy the results inside,
+docker run -it --name validate fishfuzz:artifact bash
+
+# copy results/ and scripts/ to validate:/, the following steps are done in container
+apt update && apt install python3-pip -y && pip3 install progress
+
+# delete redundant files
+find /results -name README.txt -exec rm {} \;
+find /results -name .state -exec rm -r {} \;
+find /results -name others -exec rm -r {} \;
+
+# run analysis
+python3 scripts/analysis.py -b /results -c scripts/asan.queue.json
+python3 scripts/analysis.py -b /results -c scripts/asan.crash.json
+
+# plot the results, bug report might need further triaging 
+python3 scripts/print_result.py -b /binary/ffafl/
+
 ```

@@ -94,8 +94,8 @@ TMP_DIR=$TMP_DIR $PREFUZZ/afl-fuzz -i /path/to/in -o /path/to/out -m none -t 100
 
 ## Reproduce The Results In The Paper
 
-We attach the raw data of the evaluation in `paper` folder as promised, and we'll dockerize some of the evaluation process to allow the researchers to easily reproduce our evaluation results. Please follow the guide in `paper/artifact/README.md`. The coverage and bug analysis scripts are not available yet, will be released soon.
-
+We attach the raw data of the evaluation in `paper` folder as promised, and we'll dockerize some of the evaluation process to allow the researchers to easily reproduce our evaluation results. Please follow the guide in `paper/artifact/README.md`. The bug triaging script only do simple deduplication 
+based on call stack, and might require more manual efforts.
 
 ## Main Modifications
 

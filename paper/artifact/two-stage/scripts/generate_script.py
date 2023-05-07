@@ -6,7 +6,7 @@ import argparse
 
 data = [
     #id, prog, commandline, seed_folder
-    [1,"tic","-o /dev/null @@","txt"],
+    [1,"tic","@@","txt"],
     [2,"cflow","@@","c"],
     [3,"mujs","@@","js"],
     [4,"mutool","poster @@","pdf"],
@@ -30,6 +30,9 @@ def write_script(fuzzer, dir, with_dflag = '-D'):
       if fuzzer in ['ffafl', 'ffapp']:
         tmp_env = "TMP_DIR=/binary/%s/TEMP_%s " % (fuzzer, prog)
         cmd = tmp_env + cmd
+      if prog == 'tic':
+        tmp_env = "service cron start\ncrontab -e /work/fuzz_script/clear_terminfo.cron\n"
+        cmd = tmp_env + cmd
       f.write(cmd)
   os.system('chmod +x %s/*.sh' % (dir))
 
@@ -41,6 +44,8 @@ def write_all(base_dir):
   # we enable deterministic stage for all fuzzers
   write_script('ffapp', base_dir + '/ffapp', with_dflag = '-D')
   write_script('aflpp', base_dir + '/aflpp', with_dflag = '-D')
+  with open('%s/clear_terminfo.cron' % (base_dir), 'w') as f:
+    f.write('* * * * * rm -r /usr/share/terminfo/*\n')
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()

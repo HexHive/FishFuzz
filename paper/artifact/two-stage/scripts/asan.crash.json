@@ -1,0 +1,1 @@
+{"prog_driver": ["cflow", "cxxfilt", "w3m", "mujs", "mutool", "tic", "dwarfdump"], "prog_args": {"cflow": "@@", "cxxfilt": "-t", "tic": "-o /dev/null @@", "mutool": "poster @@", "mujs": "@@", "w3m": "-dump @@", "dwarfdump": "-vv -a @@"}, "is_asan": true, "is_crash": true}
