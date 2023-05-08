@@ -280,7 +280,7 @@ class AnalysisOneResults:
 
 
 # --------------------------------------------------------------------------------------------
-def load_config_and_exec(base, json_path):
+def load_config_and_exec(base, json_path, round):
   with open(json_path) as f:
     conf = json.load(f)
   for prog in conf["prog_driver"]:
@@ -293,16 +293,26 @@ def load_config_and_exec(base, json_path):
     is_crash      = conf["is_crash"]
     # --------------------
     print ('---------------------------------[%s]---------------------------------' % (bin_name))
-    Worker = AnalysisOneResults(prog_bin_dir, prog_args, base, is_asan, is_crash)
+    Worker = AnalysisOneResults(prog_bin_dir, prog_args, base, is_asan, is_crash, round)
     Worker.start_all()
+
+def copy_results(round):
+  results_dst_dir = '/results/log/%d' % (round)
+  if not os.path.exists(results_dst_dir):
+    os.system('mkdir -p %s' % (results_dst_dir))
+  os.system("find /binary/ffafl/ -name '*.cov' -exec mv {} %s \;" % (results_dst_dir))
+  os.system("find /binary/ffafl/ -name '*.reach' -exec mv {} %s \;" % (results_dst_dir))
+  os.system("find /binary/ffafl/ -name '*.san' -exec mv {} %s \;" % (results_dst_dir))
 
 # --------------------------------------------------------------------------------------------
 def main():
   parser = argparse.ArgumentParser()
   parser.add_argument("-c", help="configure file to run all")
   parser.add_argument("-b", help="base dir")
+  parser.add_argument("-r", help="round of results")
   args = parser.parse_args()
-  load_config_and_exec(args.b, args.c)
+  load_config_and_exec(args.b, args.c, int(args.r))
+  copy_results(int(args.r))
 
 # --------------------------------------------------------------------------------------------
 def main_once():

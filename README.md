@@ -7,12 +7,45 @@ sanitizer targets. We implement the FishFuzz prototype based on [AFL](https://gi
 
 FishFuzz is accepted in USENIX Security Symposium 2023 and will occur with the paper accepted in Winter cycle.
 
+## Repo Structure
+```
+FishFuzz/
+├── FF_AFL                      # FishFuzz version AFL
+│   ├── ....
+│   ├── docker                  # dockerfile to build FF_AFL++
+│   ├── afl-fuzz.c              # modified input prioritization algorithm
+│   ├── dyncfg                  # static cfg/cg distance & runtime distance module
+│   ├── llvm_mode               # modified pass and wrapper
+│   └──scripts                  # distance calculation script
+├── FF_AFL++                    # FishFuzz version AFL++
+│   ├── ....
+│   ├── docker                  # dockerfile to build FF_AFL++
+│   ├── dyncfg                  # static cfg/cg distance
+│   ├── instrumentation         # modified pass and wrapper
+│   ├── scripts                 # distance calculation script
+│   ├── src
+│   │   ├── ...
+│   │   ├── afl-fishfuzz.cc     # dynamic distance && dynamic target  
+│   │   ├── afl-fuzz-debug.c    # debug log
+│   │   └── afl-fuzz-queue.c    # alter between 3 stages
+├── README.md
+└── paper
+    ├── README.md               
+    ├── artifact                # for artifact evaluation
+    ├── fuzzbench               # intergration with fuzzbench (experimental)
+    ├── hyperparam              # supportive materials for paper
+    ├── p-value
+    └── vuln
+```
+
+## Reproduce The Results In The Paper
+
+We attach the raw data of the evaluation in `paper` folder as promised, and we'll dockerize some of the evaluation process to allow the researchers to easily reproduce our evaluation results. Please follow the guide in `paper/artifact/README.md`. The bug triaging script only do simple deduplication 
+based on call stack, and might require more manual efforts.
 
 ## How To Build FishFuzz
 
 We provide a dockerfile for both FF_AFL and FF_AFL++, which can be found in `FF_AFL(++)/docker/Dockerfile`
-
-It's recommended to use in Ubuntu 20.04 and llvm-12.
 
 ## How To Compile & Run
 
@@ -90,22 +123,6 @@ $CC $ADDITIONAL_FUNC $BC_PATH$FF_DRIVER_NAME.final.bc -o $FF_DRIVER_NAME.fuzz $E
 
 # pick up xxx.fuzz to fuzz
 TMP_DIR=$TMP_DIR $PREFUZZ/afl-fuzz -i /path/to/in -o /path/to/out -m none -t 1000+ -- ./$FF_DRIVER_NAME.fuzz @@
-```
-
-## Reproduce The Results In The Paper
-
-We attach the raw data of the evaluation in `paper` folder as promised, and we'll dockerize some of the evaluation process to allow the researchers to easily reproduce our evaluation results. Please follow the guide in `paper/artifact/README.md`. The bug triaging script only do simple deduplication 
-based on call stack, and might require more manual efforts.
-
-## Main Modifications
-
-AFL use `cull_queue`, which pick up seeds from a list prioritized by `update_bitmap_score`. FishFuzz implement two stage strategies (and reuse origin) as `update_xxx_score` to maintain `top_rated` lists and then select seeds from the corresponding `top_rated` lists. The name can be different in FF_AFL++ but designs/structures are same.
-
-```
-cull_queue (switch between following):
-  cull_queue_origin  (pick seeds from) -> update_bitmap_score
-  cull_queue_bug     (pick seeds from) -> update_cmpmap_score
-  cull_queue_explore (pick seeds from) -> update_bug_scoring
 ```
 
 ## Tips
