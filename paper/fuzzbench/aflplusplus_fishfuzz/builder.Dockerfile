@@ -84,13 +84,11 @@ RUN update-alternatives \
 # put the /usr/bin of the highest priority, to make sure clang-12 is called before clang-15, which is in /usr/local/bin
 ENV PATH="/usr/bin:${PATH}"
 
-## Download afl++.
-#RUN git clone -b dev https://github.com/AFLplusplus/AFLplusplus /afl && \
-#    cd /afl && \
-#    git checkout d822181467ec41f1ee2d840c3c5b1918c72ffc86 || \
-#    true
+## Download fishfuzz.
+RUN git clone https://github.com/HexHive/FishFuzz/ /afl && \
+   mv /afl/FF_AFL++ /FishFuzz
 
-COPY FF_AFL++ /FishFuzz 
+# COPY FF_AFL++ /FishFuzz 
 
 ENV PATH="/usr/bin/:$PATH"
 
@@ -103,10 +101,9 @@ RUN cd /FishFuzz/ && \
     rm -f ff-all-in-one ff-all-in-one++ && \
     PYTHON_INCLUDE=/ make && \
     make -C dyncfg && \
+    chmod +x scripts/*.py && \
     make install
 
 RUN wget https://raw.githubusercontent.com/llvm/llvm-project/5feb80e748924606531ba28c97fe65145c65372e/compiler-rt/lib/fuzzer/afl/afl_driver.cpp -O /FishFuzz/afl_driver.cpp && \
     clang++ -stdlib=libc++ -std=c++11 -O2 -c /FishFuzz/afl_driver.cpp -o /FishFuzz/afl_driver.o && \
     ar r /libAFL.a /FishFuzz/afl_driver.o /FishFuzz/afl-compiler-rt.o
-
-#    cp utils/aflpp_driver/libAFLDriver.a /libAFL.a

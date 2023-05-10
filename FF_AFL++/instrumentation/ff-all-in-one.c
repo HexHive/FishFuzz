@@ -302,7 +302,9 @@ void edit_and_exec(int argc, char **argv) {
 
   if (is_linking) {
 
-    new_parm[new_parm_cnt ++] = (u8*)"-fuse-ld=gold";
+    if (getenv("FF_USE_GOLD")) new_parm[new_parm_cnt ++] = (u8*)"-fuse-ld=gold";
+    else new_parm[new_parm_cnt ++] = (u8*)"-fuse-ld=lld";
+    
     new_parm[new_parm_cnt ++] = (u8*)"-Wl,-plugin-opt=save-temps";
 
   }

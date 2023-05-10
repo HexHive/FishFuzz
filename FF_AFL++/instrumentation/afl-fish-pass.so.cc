@@ -260,6 +260,7 @@ static void save_edge(BasicBlock &src, BasicBlock &dst, unsigned is_direct, std:
 static inline bool has_sanitizer_instrumentation(BasicBlock &bb) {
   bool is_lava = (getenv("USE_LAVA_LABEL") != NULL);
   bool is_magma = (getenv("USE_MAGMA_LABEL") != NULL);
+  bool is_ubsan = (getenv("USE_UBSAN_LABEL") != NULL);
   bool existSanitizerBr = false;
   for (Instruction& inst : bb.getInstList()) {
     // if (inst.getMetadata("afl_edge_sanitizer") != NULL) {
@@ -280,8 +281,11 @@ static inline bool has_sanitizer_instrumentation(BasicBlock &bb) {
             existSanitizerBr = true;
         }
         else {
-          if (calledFunc->getName().startswith("__ubsan_handle"))
-            existSanitizerBr = true;
+          if (calledFunc->getName().startswith("__ubsan_handle")) {
+
+            if (is_ubsan) existSanitizerBr = true;
+
+          }
           if (calledFunc->getName().startswith("__asan_report"))
             existSanitizerBr = true;
           if (calledFunc->getName().startswith("__asan_handle"))
