@@ -352,7 +352,7 @@ u8 is_libfuzz_driver(int argc, char **argv) {
 
   for (u32 i = 1; i < argc - 1; i ++) {
 
-    if (!strstr(argv[i], AFL_DRIVER_LIB)) {
+    if (strstr(argv[i], AFL_DRIVER_LIB)) {
 
       return 1;
 
@@ -629,7 +629,7 @@ void target_generation(int argc, char **argv, u8 is_driver) {
     if (strstr(argv[i], (u8*)".a")) {
 
       // don't include libAFL.a, since it has repeated function defination
-      if (!strstr(argv[i], (u8*)AFL_DRIVER_LIB)) {
+      if (strstr(argv[i], (u8*)AFL_DRIVER_LIB)) {
         
         // if there are asm (obj) in static library, create a new library with these objs
         // and linking together.
