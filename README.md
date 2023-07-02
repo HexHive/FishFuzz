@@ -68,10 +68,11 @@ mkdir -p /benchmark/source/ && cd /benchmark/source/
 wget https://mujs.com/downloads/mujs-1.0.2.tar.gz && tar xzf mujs-1.0.2.tar.gz -C /benchmark
 
 export FF_DRIVER_NAME=mujs
-export CC=/FishFuzz/ff-all-in-one
-export CXX=/FishFuzz/ff-all-in-one++
-export CFLAGS="-fsanitize=address"
-export CXXFLAGS="-fsanitize=address"
+export CC="/FishFuzz/ff-all-in-one -fsanitize=address"
+export CXX="/FishFuzz/ff-all-in-one++ -fsanitize=address"
+# mujs didn't import CFLAGS from environment, for other programs you could set CFLAGS/CC respectively
+# export CFLAGS="-fsanitize=address"
+# export CXXFLAGS="-fsanitize=address"
 
 cd /benchmark/mujs-1.0.2 && make -j$(nproc)
 
@@ -117,7 +118,7 @@ $PREFUZZ/scripts/gen_initial_distance.py $TMP_DIR
 export ADDITIONAL_FUNC="-pmode=fonly -funcid=$TMP_DIR/funcid.csv -outdir=$TMP_DIR"
 export CC=$PREFUZZ/afl-clang-fast
 export CXX=$PREFUZZ/afl-clang-fast++
-export ASAN_LIBS=$(find `llvm-config --libdir` -name libclang_rt.asan-*.a |grep -v "preinit")
+export ASAN_LIBS=$(find `llvm-config --libdir` -name libclang_rt.asan-*.a |grep -v "preinit"|grep `uname -a`)
 export EXTRA_LDFLAGS="-ldl -lpthread -lrt -lm"
 $CC $ADDITIONAL_FUNC $BC_PATH$FF_DRIVER_NAME.final.bc -o $FF_DRIVER_NAME.fuzz $EXTRA_LDFLAGS $ASAN_LIBS
 
