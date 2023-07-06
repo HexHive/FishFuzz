@@ -1,15 +1,17 @@
 #!/bin/bash
 
-export FF_DRIVER_NAME=catdoc
-export SRC_DIR=/benchmark/catdoc-0.95
+export FF_DRIVER_NAME=objdump
+export SRC_DIR=/benchmark/binutils-2.31
+export __FF_ONLY_UBSAN=1
+export USE_UBSAN_LABEL=1
 
-tar xzf /benchmark/source/catdoc-0.95.tar.gz -C /benchmark
+tar xzf /benchmark/source/binutils-2.31.tar.gz -C /benchmark
 
 export FUZZ_DIR=/binary/ffafl
 
 # step 1, generating .bc file, you can use wllvm or similar approach as you wish
-export CC="clang -fsanitize=address -flto -fuse-ld=gold -Wl,-plugin-opt=save-temps -Wno-unused-command-line-argument"
-export CXX="clang++ -fsanitize=address -flto -fuse-ld=gold -Wl,-plugin-opt=save-temps -Wno-unused-command-line-argument"
+export CC="clang -fsanitize=integer,bounds,shift -flto -fuse-ld=gold -Wl,-plugin-opt=save-temps -Wno-unused-command-line-argument"
+export CXX="clang++ -fsanitize=integer,bounds,shift -flto -fuse-ld=gold -Wl,-plugin-opt=save-temps -Wno-unused-command-line-argument"
 
 cd $SRC_DIR && ./configure --disable-shared && make -j$(nproc)
 
@@ -31,9 +33,8 @@ $PREFUZZ/scripts/gen_initial_distance.py $TMP_DIR
 export ADDITIONAL_FUNC="-pmode=fonly -funcid=$TMP_DIR/funcid.csv -outdir=$TMP_DIR"
 export CC=$PREFUZZ/afl-clang-fast
 export CXX=$PREFUZZ/afl-clang-fast++
-export ASAN_LIBS=$(find `llvm-config --libdir` -name libclang_rt.asan-`uname -m`.a)
-export EXTRA_LDFLAGS="-ldl -lpthread -lrt -lm"
-$CC $ADDITIONAL_FUNC $BC_PATH$FF_DRIVER_NAME.final.bc -o $FF_DRIVER_NAME.fuzz $EXTRA_LDFLAGS $ASAN_LIBS
+export EXTRA_LDFLAGS="-ldl -lpthread -lrt -lm -lubsan"
+$CC $ADDITIONAL_FUNC $BC_PATH$FF_DRIVER_NAME.final.bc -o $FF_DRIVER_NAME.fuzz $EXTRA_LDFLAGS 
 
 mv $TMP_DIR $FUZZ_DIR/
 mv $FF_DRIVER_NAME.fuzz $FUZZ_DIR/$FF_DRIVER_NAME
@@ -41,13 +42,13 @@ mv $FF_DRIVER_NAME.fuzz $FUZZ_DIR/$FF_DRIVER_NAME
 
 # Build ffapp binary
 
-cd && rm -r $SRC_DIR/ && tar xzf /benchmark/source/catdoc-0.95.tar.gz -C /benchmark
+cd && rm -r $SRC_DIR/ && tar xzf /benchmark/source/binutils-2.31.tar.gz -C /benchmark
 
 export FUZZ_DIR=/binary/ffapp
 
 # step 1, generating .bc file, you can use wllvm or similar approach as you wish
-export CC="clang -fsanitize=address -flto -fuse-ld=gold -Wl,-plugin-opt=save-temps -Wno-unused-command-line-argument"
-export CXX="clang++ -fsanitize=address -flto -fuse-ld=gold -Wl,-plugin-opt=save-temps -Wno-unused-command-line-argument"
+export CC="clang -fsanitize=integer,bounds,shift -flto -fuse-ld=gold -Wl,-plugin-opt=save-temps -Wno-unused-command-line-argument"
+export CXX="clang++ -fsanitize=integer,bounds,shift -flto -fuse-ld=gold -Wl,-plugin-opt=save-temps -Wno-unused-command-line-argument"
 
 cd $SRC_DIR && ./configure --disable-shared && make -j$(nproc)
 
@@ -72,9 +73,8 @@ $PREFUZZ/scripts/gen_initial_distance.py $TMP_DIR
 export ADDITIONAL_FUNC="-pmode=fonly -funcid=$TMP_DIR/funcid.csv -outdir=$TMP_DIR"
 export CC=$PREFUZZ/afl-fish-fast
 export CXX=$PREFUZZ/afl-fish-fast++
-export ASAN_LIBS=$(find `llvm-config --libdir` -name libclang_rt.asan-`uname -m`.a)
-export EXTRA_LDFLAGS="-ldl -lpthread -lrt -lm"
-$CC $ADDITIONAL_FUNC $BC_PATH$FF_DRIVER_NAME.cov.bc -o $FF_DRIVER_NAME.fuzz $EXTRA_LDFLAGS $ASAN_LIBS
+export EXTRA_LDFLAGS="-ldl -lpthread -lrt -lm -lubsan"
+$CC $ADDITIONAL_FUNC $BC_PATH$FF_DRIVER_NAME.cov.bc -o $FF_DRIVER_NAME.fuzz $EXTRA_LDFLAGS 
 
 mv $TMP_DIR $FUZZ_DIR/
 mv $FF_DRIVER_NAME.fuzz $FUZZ_DIR/$FF_DRIVER_NAME
@@ -82,24 +82,20 @@ mv $FF_DRIVER_NAME.fuzz $FUZZ_DIR/$FF_DRIVER_NAME
 unset CFLAGS CXXFLAGS
 
 # build afl binary
-cd && rm -r $SRC_DIR/ && tar xzf /benchmark/source/catdoc-0.95.tar.gz -C /benchmark
+cd && rm -r $SRC_DIR/ && tar xzf /benchmark/source/binutils-2.31.tar.gz -C /benchmark
 
 export FUZZ_DIR=/binary/afl
-export CC="/AFL/afl-clang-fast -fsanitize=address"
-export CXX="/AFL/afl-clang-fast++ -fsanitize=address"
+export CC="/AFL/afl-clang-fast -fsanitize=integer,bounds,shift"
+export CXX="/AFL/afl-clang-fast++ -fsanitize=integer,bounds,shift"
 cd $SRC_DIR && ./configure --disable-shared  && make -j$(nproc)
 mv $(find . -type f -executable -name $FF_DRIVER_NAME -printf "%h\n")/$FF_DRIVER_NAME $FUZZ_DIR/
 
 # build afl++ binary
-cd && rm -r $SRC_DIR/ && tar xzf /benchmark/source/catdoc-0.95.tar.gz -C /benchmark
+cd && rm -r $SRC_DIR/ && tar xzf /benchmark/source/binutils-2.31.tar.gz -C /benchmark
 
 export FUZZ_DIR=/binary/aflpp
-export CC="/AFL++/afl-clang-fast -fsanitize=address"
-export CXX="/AFL++/afl-clang-fast++ -fsanitize=address"
+export CC="/AFL++/afl-clang-fast -fsanitize=integer,bounds,shift"
+export CXX="/AFL++/afl-clang-fast++ -fsanitize=integer,bounds,shift"
 cd $SRC_DIR && ./configure --disable-shared  && make -j$(nproc)
 mv $(find . -type f -executable -name $FF_DRIVER_NAME -printf "%h\n")/$FF_DRIVER_NAME $FUZZ_DIR/
 
-# make sure the catdoc env exists
-cd && rm -r $SRC_DIR/ && tar xzf /benchmark/source/catdoc-0.95.tar.gz -C /benchmark
-
-cd $SRC_DIR && CC=gcc CXX=g++ ./configure --disable-shared && make -j && make install

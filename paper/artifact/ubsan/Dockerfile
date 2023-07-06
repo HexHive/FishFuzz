@@ -43,7 +43,7 @@ RUN apt-get update && \
 
 RUN  git clone https://github.com/HexHive/FishFuzz /ff_repo && \
      mv /ff_repo/FF_AFL /FishFuzz && mv /ff_repo/FF_AFL++ /Fish++ && \
-    #  mv $(find /ff_repo/paper/asan -type d -name build) /build_script && \
+    #  mv $(find /ff_repo/paper/ubsan -type d -name build) /build_script && \
      rm -r /ff_repo
 
 COPY build/ /build_script
@@ -68,6 +68,8 @@ RUN  cd /Fish++ && \
 # build AFL++
 RUN git clone https://github.com/AFLplusplus/AFLplusplus /AFL++ && \
     cd /AFL++ && git checkout 4.00c && \
+    # delete ubsan fault exit option
+    sed -i '704,705d' src/afl-forkserver.c && \
     NO_NYX=1 make source-only -j
 
 # build AFL
@@ -86,18 +88,13 @@ RUN git clone https://github.com/google/afl /AFL && \
 RUN mkdir -p /benchmark/source/ /binary/afl \
     /binary/aflpp /binary/ffafl /binary/ffapp && \
     cd /benchmark/source/ && \
-    wget https://github.com/Exiv2/exiv2/releases/download/v0.26/exiv2-0.26-trunk.tar.gz && \
+    wget https://www.ijg.org/files/jpegsrc.v9c.tar.gz && \
+    git clone https://github.com/jasper-software/jasper && \
+    cd jasper && git checkout 6708e57 && cd .. && \
+    wget https://ftp.gnu.org/gnu/binutils/binutils-2.31.tar.gz && \
     wget https://www.tcpdump.org/release/tcpdump-4.9.2.tar.gz && \
-    wget http://ftp.wagner.pp.ru/pub/catdoc/catdoc-0.95.tar.gz && \
-    wget https://github.com/noirotm/flvmeta/archive/refs/tags/v1.2.1.tar.gz && \
-    wget https://github.com/liblouis/liblouis/releases/download/v3.7.0/liblouis-3.7.0.tar.gz && \
-    wget https://www.nasm.us/pub/nasm/releasebuilds/2.14rc4/nasm-2.14rc4.tar.gz && \
-    wget https://ftp.gnu.org/gnu/binutils/binutils-2.30.tar.gz && \
-    git clone https://github.com/appneta/tcpreplay --branch 4.4.0 --depth 1 /benchmark/source/tcpreplay-4.4.0 && \
-    wget https://download.osgeo.org/libtiff/tiff-4.0.9.tar.gz && \
-    wget https://github.com/miniupnp/ngiflib/archive/refs/tags/0.4.tar.gz && \
-    wget https://github.com/gpac/gpac/archive/refs/tags/v0.7.1.tar.gz
-
+    wget https://download.osgeo.org/libtiff/tiff-4.0.10.tar.gz && \
+    wget http://xmlsoft.org/download/libxml2-2.9.7.tar.gz
 
 # package requirement for the tcpdump
 RUN apt update && apt install -y libgc-dev libreadline-dev \
@@ -109,24 +106,18 @@ RUN apt update && apt install -y libgc-dev libreadline-dev \
 
 RUN chmod +x /build_script/*.sh 
 
-RUN /build_script/catdoc.sh > /dev/null
+RUN /build_script/djpeg.sh > /dev/null
 
-RUN /build_script/exiv.sh > /dev/null
+RUN /build_script/jasper.sh > /dev/null
 
-RUN /build_script/flvmeta.sh > /dev/null
-
-RUN /build_script/lou_checktable.sh > /dev/null
-
-RUN /build_script/MP4Box.sh > /dev/null
-
-RUN /build_script/nasm.sh > /dev/null
-
-RUN /build_script/nm-new.sh > /dev/null
+RUN /build_script/objdump.sh > /dev/null
 
 RUN /build_script/tcpdump.sh > /dev/null
 
-RUN /build_script/tcpprep.sh > /dev/null
+RUN /build_script/xmllint.sh > /dev/null
 
 RUN /build_script/tiff2pdf.sh > /dev/null
 
-RUN /build_script/gif2tga.sh > /dev/null
+RUN /build_script/tiff2ps.sh > /dev/null
+
+RUN /build_script/readelf.sh > /dev/null
