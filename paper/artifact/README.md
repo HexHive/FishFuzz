@@ -22,16 +22,21 @@ We create one docker container for each fuzzer-benchmark pair and assign one cor
 Step 0: Step to two-stage dir (or maybe other dir if we plan to dockerize more evaluations) first :)
 
 Step 1: Build docker image with all fuzzers and target
+
+In this step, we build the image from an empty ubuntu image, install all fuzzers along with the required runtime packages and compile the programs to fuzz.
 ```
 docker build -t fishfuzz:artifact .
 ```
-Step 2: generated the script to fuzz
+Step 2: generated the script to fuzz.
+
+In this step, we generate the scripts that are used to start the fuzzing campaigns, which will be set as the entry point when we start the docker container.
 ```
 python scripts/generate_script.py -b "$PWD/runtime/fuzz_script"
 ```
 
-Step 3: generate the commands to run evaluation. Given that two-stage evaluation will requires 7 * 4 cores to run, we only 
-print the command. You could copy and run the command or prune the benchmarks/fuzzers as you wish.
+Step 3: generate the commands to run evaluation. 
+
+This script will automatically generate the command you need to execute to start the fuzzing campain, copy-paste them to the shell to start the campaign.
 
 ```
 python3 scripts/generate_runtime.py -b "$PWD/runtime"
@@ -40,7 +45,9 @@ docker run -dt -v current_dir:/work --name ffafl_cflow --cpuset-cpus 0 --user $(
 ....
 ```
 
-Step 4: we didn't add kill in the script, so it's required to stop it manually after 24h. Copy and generate the coverage/bug report with the given scipts(todo).
+Step 4: Manually stop the container and generate the coverage report.
+
+for two-stage and ubsan, stop after 24h, for ASan, use 60h as timeout. 
 
 ```
 docker rm -f $(docker ps -a -q -f "ancestor=fishfuzz:artifact")
@@ -70,10 +77,42 @@ python3 scripts/print_result.py -b /results/log/0/
 
 ```
 
+## Results Explaination
+
+The primary metrics for the evaluation are the coverage and number of unique bugs. So in the report we generate the number of edges and unique bugs (for ubsan, unique sanitizer triggered) found by all the fuzzers. 
+
+A 24h sample report looks like below:
+
+```
+python3 scripts/print_result.py -b /results/log/0/
+
+root@d0ffb6c3dc67:/# python3 scripts/print_result.py -b /results/log/0/
+                         afl           aflpp           ffafl           ffapp
+      ...
+      MP4Box            8720            7927            9798            8449
+      ...
+      MP4Box               7               7              19               9
+
+```
+
+This report consists of edge coverage report of each program-fuzzer pair and number of bugs found by fuzzers.
+
+For instance, the AFL find 8720 edges in MP4Box while FF_AFL find 9798. FF_AFL++ find 8449 edges, which is 6.67% more than AFL++. And the number of unique bugs are also listed, e.g., FF_AFL find 19 unique bugs while AFL only find 7.
+
+Note: 
+  1) We only do stack-trace based deduplication for unique bugs, which might still have duplicated bugs and require manual triaging. In the paper we manual triaging the bugs so the number are more precise.
+  2) For UBSan bugs, usually ubsan allert are not considered as bugs, therefore the bugs in UBSan are "unique triggered sanitizers" but not "unique bugs"
+
+Our Claim: we claim that, in most of the programs, FishFuzz can improve the coverage and bug finding capability of the original fuzzer, which means, FF_AFL/FF_AFL++ should performs better than AFL/AFL++ in general. As indicated in Section 6.5 in the paper, the performance of FishFuzz variant can depends on the original fuzzer.
+
+
+
+
+
 ## Resouces Estimation
 
 The docker build process will takes approximate 1.5h in our machine (Xeon Gold 5218 CPU (22M Cache, 2.30 GHz)),
-the evaluation process will takes 24h and the analysis script will run for about 20mins.
+the two-stage evaluation process will takes 24h and the analysis script will run for about 20mins.
 
 Disk space required is ~50GB, and the required runtime memory is 16GB.
 

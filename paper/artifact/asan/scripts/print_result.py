@@ -8,7 +8,7 @@ import argparse
 
 
 fuzzer_list = ['afl', 'aflpp', 'ffafl', 'ffapp']
-benchmark_list = ['cflow', 'cxxfilt', 'w3m', 'mujs', 'mutool', 'tic', 'dwarfdump']
+benchmark_list = ['catdoc', 'exiv2', 'flvmeta', 'lou_checktable', 'MP4Box', 'nasm', 'nm-new', 'tcpdump', 'tcpprep', 'tiff2pdf', 'gif2tga']
 
 def plot_program_cov(base, prog, timeout):
   with open('%s/%s.cov' % (base, prog)) as f:

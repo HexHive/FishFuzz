@@ -84,6 +84,8 @@ TMP_DIR=TEMP_mujs $PREFUZZ/afl-fuzz -i /path/to/in -o /path/to/out -m none -t 10
 
 ### Examples For Manual Compilation
 
+**Note: for FF_AFL++, the steps are bit different, please refer to the demo in `paper/artifact/two-stage/build/cflow.sh`**
+
 ```
 cd /benchmark/source/
 wget https://mujs.com/downloads/mujs-1.0.2.tar.gz && tar xzf mujs-1.0.2.tar.gz -C /benchmark
