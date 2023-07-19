@@ -28,7 +28,10 @@ In this step, we build the image from an empty ubuntu image, install all fuzzers
 ```
 
 # for two-stage
-cd $FISHFUZZ/paper/artifact/two-stage && docker build -t fishfuzz:ae-twostage .
+export BENCHMARK_NAME=two-stage
+export IMAGE_NAME=fishfuzz:ae-twostage
+git clone git@github.com/Hexhive/FishFuzz && cd FishFuzz/paper/artifact/$BENCHMARK_NAME
+docker build -t $IMAGE_NAME .
 
 ```
 Step 2: generated the script to fuzz.
@@ -45,7 +48,8 @@ This script will automatically generate the command you need to execute to start
 ```
 python3 scripts/generate_runtime.py -b "$PWD/runtime"
 
-docker run -dt -v current_dir:/work --name ffafl_cflow --cpuset-cpus 0 --user $(id -u $(whoami)) --privileged fishfuzz:ae-twostage "/work/fuzz_script/ffafl/cflow.sh" 
+# the commands will looks like this
+docker run -dt -v current_dir:/work --name ffafl_cflow --cpuset-cpus 0 --user $(id -u $(whoami)) --privileged $IMAGE_NAME "/work/fuzz_script/ffafl/cflow.sh" 
 ....
 ```
 
@@ -54,7 +58,7 @@ Step 4: Manually stop the container and generate the coverage report.
 for two-stage and ubsan, stop after 24h, for ASan, use 60h as timeout. 
 
 ```
-docker rm -f $(docker ps -a -q -f "ancestor=fishfuzz:ae-twostage")
+docker rm -f $(docker ps -a -q -f "ancestor=$IMAGE_NAME")
 sudo chown -R $(id -u):$(id -g) runtime/out
 
 # copy evaluation results to results folder, 
@@ -64,13 +68,13 @@ python3 scripts/copy_results.py -s "$PWD/runtime" -d "$PWD/results/" -r 0
 
 # create a container for analysis and mount the results folder
 cp -r scripts/ results/
-docker run -it -v $PWD/results/:/results --name validate_twostage fishfuzz:ae-twostage bash
+docker run -it -v $PWD/results/:/results --name validate_twostage $IMAGE_NAME bash
 
 # run analysis, the following steps are executed in the container
 python3 results/scripts/analysis.py -b /results -c results/scripts/asan.queue.json -r 0 -d /results/log/0/
 python3 results/scripts/analysis.py -b /results -c results/scripts/asan.crash.json -r 0 -d /results/log/0/
 
-# plot the results, bug report might need further triaging, change -t with cov or bug for one type of report only
+# plot the results, bug report might need further triaging, change `-t ` option with cov or bug for one type of report only
 python3 results/scripts/print_result.py -b /results/log/0/ -t all
 
 ```
@@ -102,9 +106,6 @@ Note:
   2) For UBSan bugs, usually ubsan allert are not considered as bugs, therefore the bugs in UBSan are "unique triggered sanitizers" but not "unique bugs"
 
 Our Claim: we claim that, in most of the programs, FishFuzz can improve the coverage and bug finding capability of the original fuzzer, which means, FF_AFL/FF_AFL++ should performs better than AFL/AFL++ in general. As indicated in Section 6.5 in the paper, the performance of FishFuzz variant can depends on the original fuzzer.
-
-
-
 
 
 ## Resouces Estimation
