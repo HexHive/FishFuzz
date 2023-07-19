@@ -41,7 +41,7 @@ RUN apt-get update && \
 # build FF_AFL
 # COPY ../../../FishFuzz /ff_repo
 
-RUN  git clone https://github.com/HexHive/FishFuzz /ff_repo && \
+RUN  git clone --branch artifact https://github.com/HexHive/FishFuzz /ff_repo && \
      mv /ff_repo/FF_AFL /FishFuzz && mv /ff_repo/FF_AFL++ /Fish++ && \
     #  mv $(find /ff_repo/paper/ubsan -type d -name build) /build_script && \
      rm -r /ff_repo
