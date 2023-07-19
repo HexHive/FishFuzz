@@ -19,13 +19,17 @@ We create one docker container for each fuzzer-benchmark pair and assign one cor
 
 ## How to Start
 
-Step 0: Step to two-stage dir (or maybe other dir if we plan to dockerize more evaluations) first :)
+**Note: following instructions are for two-stage evaluation, for others, please change the image name to fishfuzz:ae-asan or fishfuzz:ae-ubsan accordingly**
 
 Step 1: Build docker image with all fuzzers and target
 
 In this step, we build the image from an empty ubuntu image, install all fuzzers along with the required runtime packages and compile the programs to fuzz.
+
 ```
-docker build -t fishfuzz:artifact .
+
+# for two-stage
+cd $FISHFUZZ/paper/artifact/two-stage && docker build -t fishfuzz:ae-twostage .
+
 ```
 Step 2: generated the script to fuzz.
 
@@ -41,7 +45,7 @@ This script will automatically generate the command you need to execute to start
 ```
 python3 scripts/generate_runtime.py -b "$PWD/runtime"
 
-docker run -dt -v current_dir:/work --name ffafl_cflow --cpuset-cpus 0 --user $(id -u $(whoami)) --privileged fishfuzz:artifact "/work/fuzz_script/ffafl/cflow.sh" 
+docker run -dt -v current_dir:/work --name ffafl_cflow --cpuset-cpus 0 --user $(id -u $(whoami)) --privileged fishfuzz:ae-twostage "/work/fuzz_script/ffafl/cflow.sh" 
 ....
 ```
 
@@ -50,30 +54,24 @@ Step 4: Manually stop the container and generate the coverage report.
 for two-stage and ubsan, stop after 24h, for ASan, use 60h as timeout. 
 
 ```
-docker rm -f $(docker ps -a -q -f "ancestor=fishfuzz:artifact")
+docker rm -f $(docker ps -a -q -f "ancestor=fishfuzz:ae-twostage")
 sudo chown -R $(id -u):$(id -g) runtime/out
 
-# copy evaluation results to results folder
+# copy evaluation results to results folder, 
+# `-r 0` means it's the first round of results, change the round number accordingly if there are multiple rounds's result
 mkdir results/
 python3 scripts/copy_results.py -s "$PWD/runtime" -d "$PWD/results/" -r 0
 
-# create a new container and copy the results inside,
-docker run -it --name validate fishfuzz:artifact bash
+# create a container for analysis and mount the results folder
+cp -r scripts/ results/
+docker run -it -v $PWD/results/:/results --name validate_twostage fishfuzz:ae-twostage bash
 
-# copy results/ and scripts/ to validate:/, the following steps are done in container
-apt update && apt install python3-pip -y && pip3 install progress
+# run analysis, the following steps are executed in the container
+python3 results/scripts/analysis.py -b /results -c results/scripts/asan.queue.json -r 0 -d /results/log/0/
+python3 results/scripts/analysis.py -b /results -c results/scripts/asan.crash.json -r 0 -d /results/log/0/
 
-# delete redundant files
-find /results -name README.txt -exec rm {} \;
-find /results -name .state -exec rm -r {} \;
-find /results -name others -exec rm -r {} \;
-
-# run analysis
-python3 scripts/analysis.py -b /results -c scripts/asan.queue.json -r 0
-python3 scripts/analysis.py -b /results -c scripts/asan.crash.json -r 0
-
-# plot the results, bug report might need further triaging 
-python3 scripts/print_result.py -b /results/log/0/
+# plot the results, bug report might need further triaging, change -t with cov or bug for one type of report only
+python3 results/scripts/print_result.py -b /results/log/0/ -t all
 
 ```
 

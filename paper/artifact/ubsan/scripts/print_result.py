@@ -23,6 +23,7 @@ def plot_program_cov(base, prog, timeout):
   print ('')
 
 def plot_all_cov(base, timeout = 24):
+  print ('------------------------------------[cov]------------------------------------')
   print ('%12s\t' % '', end = '')
   for fuzzer in fuzzer_list:
     print ('%12s\t' % fuzzer, end = '')
@@ -43,6 +44,7 @@ def plot_program_san(base, prog, timeout):
   print ('')
 
 def plot_all_san(base, timeout = 24):
+  print ('------------------------------------[bug]------------------------------------')
   print ('%12s\t' % '', end = '')
   for fuzzer in fuzzer_list:
     print ('%12s\t' % fuzzer, end = '')
@@ -53,6 +55,16 @@ def plot_all_san(base, timeout = 24):
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument("-b", help="basedir to read the results")
+  parser.add_argument("-t", type=str, default = 'all', help="type of report, have 3 options: bug, cov and all")
   args = parser.parse_args()
-  plot_all_cov(args.b, timeout = 24)
-  plot_all_san(args.b, timeout = 24)
+  if args.t == "bug":
+    plot_all_san(args.b, timeout = 24)
+  elif args.t == "cov":
+    plot_all_cov(args.b, timeout = 24)
+  elif args.t == "all":
+    plot_all_cov(args.b, timeout = 24)
+    plot_all_san(args.b, timeout = 24)
+  else :
+    print ("[ERROR] unknow type!")
+    exit(-1)
+  

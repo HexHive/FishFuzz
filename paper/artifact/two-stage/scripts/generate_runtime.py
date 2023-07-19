@@ -20,7 +20,7 @@ def construct_docker_cmd(base_run_dir, fuzzer_name, benchmark_name, bind_cpu_id,
   # for tic's permission, disable this feature
   # docker_cmd += '--user $(id -u $(whoami)) --privileged '
   # docker_cmd += '--stop-timeout %d ' % (timeout_h * 3600)
-  docker_cmd += 'fishfuzz:artifact '
+  docker_cmd += 'fishfuzz:ae-twostage '
   docker_cmd += '"/work/fuzz_script/%s/%s.sh"' % (fuzzer_name, benchmark_name)
   return docker_cmd
 

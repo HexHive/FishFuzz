@@ -232,6 +232,16 @@ class AnalysisOneResults:
       print ('[WARN] while validating, seed %s timeout, skip' % (_sname))
       return ''
   # --------------------------------------------------------------------------------------------
+  def update_seed_list(self, fuzzer, corpus_dir):
+    self.__seed_list[fuzzer] = []
+    for _sname in os.listdir(corpus_dir):
+      _spath = os.path.join(corpus_dir, _sname)
+      if os.path.isdir(_spath):
+        continue
+      if _sname.startswith('README'):
+        continue
+      self.__seed_list[fuzzer].append(_sname)
+  # --------------------------------------------------------------------------------------------
   def analysis_program_fuzzer(self, fuzzer):
     """Test one fuzzer's results and parse the log"""
     if not os.path.exists(self.base_dir + '/' + fuzzer):
@@ -244,9 +254,9 @@ class AnalysisOneResults:
       exit(-1)
     # first get sorted corpus dir
     if self.is_crash and self.is_asan:
-      self.__seed_list[fuzzer] = os.listdir(__fuzzer_base_crash)
+      self.update_seed_list(fuzzer, __fuzzer_base_crash)
     else :
-      self.__seed_list[fuzzer] = os.listdir(__fuzzer_base_queue)
+      self.update_seed_list(fuzzer, __fuzzer_base_queue)
     self.sort_corpus(fuzzer)
     bar = Bar("[%s]" % (fuzzer) , fill='#', max = 100, suffix = '%(percent)d%%')
     for _sid in bar.iter(range(len(self.__sorted_list[fuzzer]))):
@@ -296,8 +306,10 @@ def load_config_and_exec(base, json_path, round):
     Worker = AnalysisOneResults(prog_bin_dir, prog_args, base, is_asan, is_crash, round)
     Worker.start_all()
 
-def copy_results(round):
-  results_dst_dir = '/results/log/%d' % (round)
+# --------------------------------------------------------------------------------------------
+def copy_results(round, results_dst_dir = ''):
+  if results_dst_dir == '':
+    results_dst_dir = '/results/log/%d' % (round)
   if not os.path.exists(results_dst_dir):
     os.system('mkdir -p %s' % (results_dst_dir))
   os.system("find /binary/ffafl/ -name '*.cov' -exec mv {} %s \;" % (results_dst_dir))
@@ -310,9 +322,10 @@ def main():
   parser.add_argument("-c", help="configure file to run all")
   parser.add_argument("-b", help="base dir")
   parser.add_argument("-r", help="round of results")
+  parser.add_argument("-d", help="destnation of results folder")
   args = parser.parse_args()
   load_config_and_exec(args.b, args.c, int(args.r))
-  copy_results(int(args.r))
+  copy_results(int(args.r), results_dst_dir = args.d)
 
 # --------------------------------------------------------------------------------------------
 def main_once():
