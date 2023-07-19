@@ -104,6 +104,10 @@ RUN apt update && apt install -y libgc-dev libreadline-dev \
     mesa-common-dev libglu1-mesa-dev freeglut3-dev libxrandr-dev libxi-dev \
     cron libpcap-dev autogen libsdl-dev 
 
+# for analysis
+RUN apt update && apt install python3-pip -y && pip3 install progress
+
+
 # build all
 # COPY build /build_script
 

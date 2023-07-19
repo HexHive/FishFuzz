@@ -31,7 +31,7 @@ $PREFUZZ/scripts/gen_initial_distance.py $TMP_DIR
 export ADDITIONAL_FUNC="-pmode=fonly -funcid=$TMP_DIR/funcid.csv -outdir=$TMP_DIR"
 export CC=$PREFUZZ/afl-clang-fast
 export CXX=$PREFUZZ/afl-clang-fast++
-export ASAN_LIBS=$(find `llvm-config --libdir` -name libclang_rt.asan-*.a |head -n 1)
+export ASAN_LIBS=$(find `llvm-config --libdir` -name libclang_rt.asan-`uname -m`.a |head -n 1)
 export EXTRA_LDFLAGS="-ldl -lpthread -lrt -lm -L$SRC_DIR -L$SRC_DIR/libwc -lindep -lwc -lgc -lreadline -ltinfo"
 $CC $ADDITIONAL_FUNC $BC_PATH$FF_DRIVER_NAME.final.bc -o $FF_DRIVER_NAME.fuzz $EXTRA_LDFLAGS $ASAN_LIBS
 
@@ -72,7 +72,7 @@ $PREFUZZ/scripts/gen_initial_distance.py $TMP_DIR
 export ADDITIONAL_FUNC="-pmode=fonly -funcid=$TMP_DIR/funcid.csv -outdir=$TMP_DIR"
 export CC=$PREFUZZ/afl-fish-fast
 export CXX=$PREFUZZ/afl-fish-fast++
-export ASAN_LIBS=$(find `llvm-config --libdir` -name libclang_rt.asan-*.a |head -n 1)
+export ASAN_LIBS=$(find `llvm-config --libdir` -name libclang_rt.asan-`uname -m`.a |head -n 1)
 export EXTRA_LDFLAGS="-ldl -lpthread -lrt -lm -L$SRC_DIR -L$SRC_DIR/libwc -lindep -lwc -lgc -lreadline -ltinfo"
 $CC $ADDITIONAL_FUNC $BC_PATH$FF_DRIVER_NAME.cov.bc -o $FF_DRIVER_NAME.fuzz $EXTRA_LDFLAGS $ASAN_LIBS
 

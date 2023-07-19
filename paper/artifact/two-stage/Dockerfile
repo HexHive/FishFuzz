@@ -42,8 +42,11 @@ RUN apt-get update && \
 # COPY FF_AFL /FishFuzz 
 RUN git clone https://github.com/HexHive/FishFuzz /ff_repo && \
     mv /ff_repo/FF_AFL /FishFuzz && mv /ff_repo/FF_AFL++ /Fish++ && \
-    mv $(find /ff_repo/paper/ -type d -name build) /build_script && \
+    # mv $(find /ff_repo/paper/two-stage -type d -name build) /build_script && \
     rm -r /ff_repo
+
+COPY build/ /build_script
+
 
 RUN  cd /FishFuzz/ && \
      unset CFLAGS CXXFLAGS && \
@@ -78,7 +81,6 @@ RUN git clone https://github.com/google/afl /AFL && \
     sed -i 's/describe_op(hnb)/describe_op(hnb), get_cur_time() - start_time/g' `ls afl-fuzz.c` && \
     make -j && make -C llvm_mode
 
-
 # prepare source package
 RUN mkdir -p /benchmark/source/ /binary/afl \
     /binary/aflpp /binary/ffafl /binary/ffapp && \
@@ -97,6 +99,9 @@ RUN mkdir -p /benchmark/source/ /binary/afl \
 RUN apt update && apt install -y libgc-dev libreadline-dev \
     mesa-common-dev libglu1-mesa-dev freeglut3-dev libxrandr-dev libxi-dev \
     cron 
+
+# for analysis
+RUN apt update && apt install python3-pip -y && pip3 install progress
 
 # build all
 # COPY build /build_script
