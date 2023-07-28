@@ -1,0 +1,1 @@
+{"prog_driver": ["djpeg", "jasper", "objdump", "readelf", "tcpdump", "tiff2pdf", "tiff2ps", "xmllint"], "prog_args": {"djpeg": "", "jasper": "-f @@ -T pnm", "objdump": "-D @@", "readelf": "-A @@", "tcpdump": "-evnnnr @@", "tiff2pdf": "@@", "tiff2ps": "@@", "xmllint": "@@"}, "is_asan": false, "is_crash": false}
