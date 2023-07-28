@@ -40,7 +40,8 @@ RUN apt-get update && \
 
 # build FF_AFL
 # COPY FF_AFL /FishFuzz 
-RUN  git clone --branch artifact https://github.com/HexHive/FishFuzz /ff_repo && \
+RUN  git clone https://github.com/HexHive/FishFuzz /ff_repo && \
+     cd /ff_repo && git checkout 88735f0a218baa0bbce40a89cc8910fde1c50c1a && \
     mv /ff_repo/FF_AFL /FishFuzz && mv /ff_repo/FF_AFL++ /Fish++ && \
     # mv $(find /ff_repo/paper/two-stage -type d -name build) /build_script && \
     rm -r /ff_repo
