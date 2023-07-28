@@ -74,8 +74,9 @@ docker run -it -v $PWD/results/:/results --name validate_twostage $IMAGE_NAME ba
 python3 results/scripts/analysis.py -b /results -c results/scripts/asan.queue.json -r 0 -d /results/log/0/
 python3 results/scripts/analysis.py -b /results -c results/scripts/asan.crash.json -r 0 -d /results/log/0/
 
-# plot the results, bug report might need further triaging, change `-t ` option with cov or bug for one type of report only
-python3 results/scripts/print_result.py -b /results/log/0/ -t all
+# plot the results, bug report might need further triaging, change `-t ` option with cov, reach or bug for one type of report only
+# if you want to see multiple results' average, you could add option --avg 
+python3 results/scripts/print_result.py -b /results/log/ -r 0 -t all
 
 ```
 
@@ -86,9 +87,9 @@ The primary metrics for the evaluation are the coverage and number of unique bug
 A 24h sample report looks like below:
 
 ```
-python3 scripts/print_result.py -b /results/log/0/
+python3 results/scripts/print_result.py -b /results/log/ -r 0 -t all
 
-root@d0ffb6c3dc67:/# python3 scripts/print_result.py -b /results/log/0/
+root@d0ffb6c3dc67:/# python3 results/scripts/print_result.py -b /results/log/ -r 0 -t all
                          afl           aflpp           ffafl           ffapp
       ...
       MP4Box            8720            7927            9798            8449
