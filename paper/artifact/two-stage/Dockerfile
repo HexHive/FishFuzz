@@ -84,7 +84,7 @@ RUN git clone https://github.com/google/afl /AFL && \
 
 # prepare source package
 RUN mkdir -p /benchmark/source/ /binary/afl \
-    /binary/aflpp /binary/ffafl /binary/ffapp && \
+    /binary/aflpp /binary/ffafl /binary/ffapp /binary/neutral && \
     cd /benchmark/source/ && \
     wget https://ftp.gnu.org/gnu/cflow/cflow-1.6.tar.gz && \
     wget https://ftp.gnu.org/gnu/binutils/binutils-2.30.tar.gz && \

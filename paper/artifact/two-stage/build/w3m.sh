@@ -98,3 +98,21 @@ export CC="/AFL++/afl-clang-fast -fsanitize=address"
 export CXX="/AFL++/afl-clang-fast++ -fsanitize=address"
 cd $SRC_DIR && ./configure --disable-shared && make -j$(nproc)
 mv $(find . -name $FF_DRIVER_NAME -printf "%h\n")/$FF_DRIVER_NAME $FUZZ_DIR/
+
+# build neutral binary 
+
+cd && rm -r $SRC_DIR/ && cp -r /benchmark/source/w3m-v0.5.3+git20220429 /benchmark
+export CC=clang 
+export CFLAGS="-fsanitize=address -flto -fuse-ld=gold -Wl,-plugin-opt=save-temps -Wno-unused-command-line-argument"
+export CXX=clang++ 
+export CXXFLAGS="-fsanitize=address -flto -fuse-ld=gold -Wl,-plugin-opt=save-temps -Wno-unused-command-line-argument"
+cd $SRC_DIR && ./configure --disable-shared && make -j$(nproc)
+
+export FUZZ_DIR=/binary/neutral
+export CC=/AFL/afl-clang-fast
+export CXX=/AFL/afl-clang-fast++
+export ASAN_LIBS=$(find `llvm-config --libdir` -name libclang_rt.asan-`uname -m`.a |head -n 1)
+export EXTRA_LDFLAGS="-ldl -lpthread -lrt -lm -L$SRC_DIR -L$SRC_DIR/libwc -lindep -lwc -lgc -lreadline -ltinfo"
+$CC $BC_PATH$FF_DRIVER_NAME.0.5.precodegen.bc -o $FF_DRIVER_NAME.neutral $EXTRA_LDFLAGS $ASAN_LIBS
+mv $FF_DRIVER_NAME.neutral $FUZZ_DIR/$FF_DRIVER_NAME
+
