@@ -42,7 +42,7 @@ RUN apt-get update && \
 # COPY ../../../FishFuzz /ff_repo
 
 RUN  git clone https://github.com/HexHive/FishFuzz /ff_repo && \
-     cd /ff_repo && git checkout 88735f0a218baa0bbce40a89cc8910fde1c50c1a && \
+     cd /ff_repo && git checkout 43f971aa32e215ebddccd2290e8ef1cf32a6c9c3 && \
      mv /ff_repo/FF_AFL /FishFuzz && mv /ff_repo/FF_AFL++ /Fish++ && \
     #  mv $(find /ff_repo/paper/asan -type d -name build) /build_script && \
      rm -r /ff_repo
