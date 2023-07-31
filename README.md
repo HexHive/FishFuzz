@@ -1,7 +1,20 @@
-## FishFuzz: Throwing Larger Net To Catch Deeper Bugs
+## FishFuzz: Catch Deeper Bugs by Throwing Larger Nets
 
-FishFuzz is an input prioritization strategy that efficiently direct fuzzing towards the promising
-sanitizer targets. We implement the FishFuzz prototype based on [AFL](https://github.com/google/afl) and [AFL++](https://github.com/AFLplusplus/AFLplusplus/).
+<a href="https://hexhive.epfl.ch/paper/23SEC5.pdf" target="_blank"><img src="paper/preview/FishFuzz-preview.png" align="right" width="280"></a>
+
+FishFuzz is an input prioritization strategy that efficiently direct fuzzing towards the promising sanitizer targets. We implement the FishFuzz prototype based on [AFL](https://github.com/google/afl) and [AFL++](https://github.com/AFLplusplus/AFLplusplus/).
+
+For more details, check out our [paper](https://hexhive.epfl.ch/paper/23SEC5.pdf). To cite our work, you can use the following BibTeX entry:
+
+```bibtex
+@inproceedings{zheng2023fishfuzz,
+  title={FishFuzz: Catch Deeper Bugs by Throwing Larger Nets},
+  booktitle = {32st USENIX Security Symposium (USENIX Security 23)},
+  publisher = {USENIX Association},
+  year={2023},
+  author={Zheng, Han and Jiayuan, Zhang and Yuhang, Huang and Zezhong, Ren and He, Wang and Chunjie, Cao and Yuqing, Zhang and Flavio, Toffalini and Mathias, Payer},
+}
+```
 
 ## Published Work
 
@@ -32,7 +45,7 @@ FishFuzz/
 └── paper
     ├── README.md               
     ├── artifact                # for artifact evaluation
-    ├── fuzzbench               # intergration with fuzzbench (experimental)
+    ├── fuzzbench               # intergration with fuzzbench (WIP, not ready yet)
     ├── hyperparam              # supportive materials for paper
     ├── p-value
     └── vuln
