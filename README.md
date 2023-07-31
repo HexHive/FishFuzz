@@ -12,7 +12,7 @@ For more details, check out our [paper](https://hexhive.epfl.ch/paper/23SEC5.pdf
   booktitle = {32st USENIX Security Symposium (USENIX Security 23)},
   publisher = {USENIX Association},
   year={2023},
-  author={Zheng, Han and Jiayuan, Zhang and Yuhang, Huang and Zezhong, Ren and He, Wang and Chunjie, Cao and Yuqing, Zhang and Flavio, Toffalini and Mathias, Payer},
+  author={Zheng, Han and Zhang, Jiayuan and Huang, Yuhang and Ren, Zezhong and Wang, He and Cao, Chunjie and Zhang, Yuqing and Toffalini, Flavio and Payer, Mathias},
 }
 ```
 
