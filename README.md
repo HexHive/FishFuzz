@@ -8,11 +8,12 @@ For more details, check out our [paper](https://hexhive.epfl.ch/paper/23SEC5.pdf
 
 ```bibtex
 @inproceedings{zheng2023fishfuzz,
-  title={FishFuzz: Catch Deeper Bugs by Throwing Larger Nets},
-  booktitle = {32st USENIX Security Symposium (USENIX Security 23)},
-  publisher = {USENIX Association},
-  year={2023},
+  title={FISHFUZZ: Catch Deeper Bugs by Throwing Larger Nets},
   author={Zheng, Han and Zhang, Jiayuan and Huang, Yuhang and Ren, Zezhong and Wang, He and Cao, Chunjie and Zhang, Yuqing and Toffalini, Flavio and Payer, Mathias},
+  booktitle={32nd USENIX Security Symposium (USENIX Security 23)},
+  pages={1343--1360},
+  year={2023},
+  organization={USENIX Association}
 }
 ```
 
