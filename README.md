@@ -4,7 +4,7 @@
 
 FishFuzz is an input prioritization strategy that efficiently direct fuzzing towards the promising sanitizer targets. We implement the FishFuzz prototype based on [AFL](https://github.com/google/afl) and [AFL++](https://github.com/AFLplusplus/AFLplusplus/).
 
-For more details, check out our [paper](https://hexhive.epfl.ch/paper/23SEC5.pdf). To cite our work, you can use the following BibTeX entry:
+For more details, check out our [paper](https://www.usenix.org/system/files/usenixsecurity23-zheng.pdf). To cite our work, you can use the following BibTeX entry:
 
 ```bibtex
 @inproceedings{zheng2023fishfuzz,
