@@ -119,11 +119,18 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->cpu_aff = -1;                    /* Selected CPU core                */
 #endif                                                     /* HAVE_AFFINITY */
 
+  /* we temporarily use constraint */
+  afl->func_map_size = FUNC_SIZE;
+  afl->targ_map_size = map_size;
+
   afl->virgin_bits = ck_alloc(map_size);
+  afl->virgin_funcs = ck_alloc(afl->func_map_size);
   afl->virgin_tmout = ck_alloc(map_size);
   afl->virgin_crash = ck_alloc(map_size);
   afl->var_bytes = ck_alloc(map_size);
   afl->top_rated = ck_alloc(map_size * sizeof(void *));
+  afl->top_rated_exploit = ck_alloc(afl->targ_map_size * sizeof(void *));
+  afl->top_rated_explore = ck_alloc(afl->func_map_size * sizeof(void *));
   afl->clean_trace = ck_alloc(map_size);
   afl->clean_trace_custom = ck_alloc(map_size);
   afl->first_trace = ck_alloc(map_size);
@@ -142,6 +149,16 @@ void afl_state_init(afl_state_t *afl, uint32_t map_size) {
   afl->fsrv.out_dir_fd = -1;
 
   init_mopt_globals(afl);
+
+  if (!afl->ff_info) {
+    
+    afl->ff_info = (struct fishfuzz_info *)ck_alloc(sizeof(struct fishfuzz_info)); 
+
+    afl->ff_info->no_exploitation = 0;
+
+    afl->ff_info->prof = (struct fishfuzz_profile *)ck_alloc(sizeof(struct fishfuzz_profile));
+    
+  }
 
   list_append(&afl_states, afl);
 
@@ -710,14 +727,25 @@ void afl_state_deinit(afl_state_t *afl) {
   afl_free(afl->ex_buf);
 
   ck_free(afl->virgin_bits);
+  ck_free(afl->virgin_funcs);
   ck_free(afl->virgin_tmout);
   ck_free(afl->virgin_crash);
   ck_free(afl->var_bytes);
   ck_free(afl->top_rated);
+  ck_free(afl->top_rated_exploit);
+  ck_free(afl->top_rated_explore);
   ck_free(afl->clean_trace);
   ck_free(afl->clean_trace_custom);
   ck_free(afl->first_trace);
   ck_free(afl->map_tmp_buf);
+
+  if (afl->ff_info) {
+
+    if (afl->ff_info->prof) ck_free(afl->ff_info->prof);
+
+    ck_free(afl->ff_info);
+
+  }
 
   list_remove(&afl_states, afl);
 

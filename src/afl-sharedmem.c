@@ -130,6 +130,7 @@ void afl_shm_deinit(sharedmem_t *shm) {
 #else
   shmctl(shm->shm_id, IPC_RMID, NULL);
   if (shm->cmplog_mode) { shmctl(shm->cmplog_shm_id, IPC_RMID, NULL); }
+  if (shm->fishfuzz_mode) { shmctl(shm->fishfuzz_shm_id, IPC_RMID, NULL); }
 #endif
 
   shm->map = NULL;
@@ -299,6 +300,20 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   }
 
+  if (shm->fishfuzz_mode) {
+
+    shm->fishfuzz_shm_id = shmget(IPC_PRIVATE, FISH_SIZE,
+                                IPC_CREAT | IPC_EXCL | DEFAULT_PERMISSION);
+
+    if (shm->fishfuzz_shm_id < 0) {
+
+      shmctl(shm->shm_id, IPC_RMID, NULL);  // do not leak shmem
+      PFATAL("shmget() failed, try running afl-system-config");
+
+    }
+
+  }
+
   if (!non_instrumented_mode) {
 
     shm_str = alloc_printf("%d", shm->shm_id);
@@ -324,6 +339,16 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
   }
 
+  if (shm->fishfuzz_mode && !non_instrumented_mode) {
+    
+    shm_str = alloc_printf("%d", shm->fishfuzz_shm_id);
+
+    setenv(FISHFUZZ_SHM_ENV_VAR, shm_str, 1);
+
+    ck_free(shm_str);
+
+  }
+
   shm->map = shmat(shm->shm_id, NULL, 0);
 
   if (shm->map == (void *)-1 || !shm->map) {
@@ -334,6 +359,12 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
 
       shmctl(shm->cmplog_shm_id, IPC_RMID, NULL);  // do not leak shmem
 
+    }
+
+    if (shm->fishfuzz_mode) {
+
+      shmctl(shm->fishfuzz_shm_id, IPC_RMID, NULL);
+      
     }
 
     PFATAL("shmat() failed");
@@ -349,6 +380,22 @@ u8 *afl_shm_init(sharedmem_t *shm, size_t map_size,
       shmctl(shm->shm_id, IPC_RMID, NULL);  // do not leak shmem
 
       shmctl(shm->cmplog_shm_id, IPC_RMID, NULL);  // do not leak shmem
+
+      PFATAL("shmat() failed");
+
+    }
+
+  }
+
+  if (shm->fishfuzz_mode) {
+
+    shm->fish_map = shmat(shm->fishfuzz_shm_id, NULL, 0);
+
+    if (shm->fish_map == (void *)-1 || !shm->fish_map) {
+
+      shmctl(shm->shm_id, IPC_RMID, NULL);  // do not leak shmem
+
+      shmctl(shm->fishfuzz_shm_id, IPC_RMID, NULL);  // do not leak shmem
 
       PFATAL("shmat() failed");
 
