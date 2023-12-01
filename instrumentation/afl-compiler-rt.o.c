@@ -1909,6 +1909,8 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
 
   // fprintf(stderr, "hook1 arg0=%02x arg1=%02x attr=%u\n",
   //         (u8) arg1, (u8) arg2, attr);
+  return;
+  /*
 
   if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
 
@@ -1936,6 +1938,7 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
   __afl_cmp_map->log[k][hits].v0 = arg1;
   __afl_cmp_map->log[k][hits].v1 = arg2;
 
+  */
 }
 
 void __cmplog_ins_hook2(uint16_t arg1, uint16_t arg2, uint8_t attr) {
@@ -2142,13 +2145,13 @@ void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
 
 void __sanitizer_cov_trace_cmp1(uint8_t arg1, uint8_t arg2) {
 
-  __cmplog_ins_hook1(arg1, arg2, 0);
+  // __cmplog_ins_hook1(arg1, arg2, 0);
 
 }
 
 void __sanitizer_cov_trace_const_cmp1(uint8_t arg1, uint8_t arg2) {
 
-  __cmplog_ins_hook1(arg1, arg2, 0);
+  // __cmplog_ins_hook1(arg1, arg2, 0);
 
 }
 
