@@ -504,6 +504,9 @@ struct fishfuzz_info {
 
   u32 *shortest_dist;
 
+  u8 *unvisited_func_map, 
+     *iterated_func_map;
+
   struct fishfuzz_profile *prof;
 
 };
@@ -1300,6 +1303,12 @@ u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
 
 /* RedQueen */
 u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len);
+
+/* FishFuzz */
+void initialized_dist_map(afl_state_t *afl, struct fishfuzz_info *ff_info);
+void target_ranking(afl_state_t *afl, struct fishfuzz_info *ff_info);
+void update_bitmap_score_explore(afl_state_t *afl, struct fishfuzz_info *ff_info);
+
 
 /* our RNG wrapper */
 AFL_RAND_RETURN rand_next(afl_state_t *afl);
