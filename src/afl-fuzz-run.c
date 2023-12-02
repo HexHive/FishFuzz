@@ -590,8 +590,8 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
     
     if (!q->trace_func) {
 
-      q->trace_func = ck_alloc(sizeof(u8) * FUNC_SIZE);
-      memcpy(q->trace_func, afl->shm.fish_map, FUNC_SIZE);
+      q->trace_func = ck_alloc(sizeof(u8) * afl->func_map_size);
+      memcpy(q->trace_func, afl->shm.fish_map, afl->func_map_size);
 
     }
 

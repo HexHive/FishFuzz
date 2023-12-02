@@ -61,7 +61,7 @@ void initialized_dist_map(afl_state_t *afl, struct fishfuzz_info *ff_info) {
   ff_info->unvisited_func_map = (u8*)ck_alloc(sizeof(u8) * afl->func_map_size);
   ff_info->iterated_func_map = (u8*)ck_alloc(sizeof(u8) * afl->func_map_size);
 
-  for (int i = 0; i < FUNC_SIZE; i ++) ff_info->unvisited_func_map[i] = 1;
+  for (int i = 0; i < afl->func_map_size; i ++) ff_info->unvisited_func_map[i] = 1;
   
 }
 

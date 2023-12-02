@@ -699,8 +699,8 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
     
     if (!q->trace_func) {
 
-      q->trace_func = ck_alloc(sizeof(u8) * FUNC_SIZE);
-      memcpy(q->trace_func, afl->shm.fish_map, FUNC_SIZE);
+      q->trace_func = ck_alloc(sizeof(u8) * afl->func_map_size);
+      memcpy(q->trace_func, afl->shm.fish_map, afl->func_map_size);
 
     }
 
