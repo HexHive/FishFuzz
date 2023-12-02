@@ -691,7 +691,7 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
 
   }
 
-  if (afl->shm.fishfuzz_mode) {
+  if (afl->shm.fishfuzz_mode && afl->shm.fish_map) {
 
     struct fishfuzz_info *ff_info = afl->ff_info;
 
@@ -910,7 +910,7 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 
   update_bitmap_score_origin(afl, q);
 
-  if (afl->shm.fishfuzz_mode) {
+  if (afl->shm.fishfuzz_mode && afl->shm.fish_map) {
 
     struct fishfuzz_info *ff_info = afl->ff_info;
     struct fishfuzz_profile *ff_prof = ff_info->prof;
