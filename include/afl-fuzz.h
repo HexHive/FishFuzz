@@ -164,6 +164,7 @@ struct queue_entry {
       has_new_cov,                      /* Triggers new coverage?           */
       var_behavior,                     /* Variable behavior?               */
       favored,                          /* Currently favored?               */
+      retry,
       fs_redundant,                     /* Marked as redundant in the fs?   */
       is_ascii,                         /* Is the input just ascii text?    */
       disabled;                         /* Is disabled from fuzz selection  */
@@ -465,8 +466,8 @@ struct fishfuzz_profile {
       log_cull_other_time,
       log_total_fuzz_time,
       log_total_iteration_time,
-      log_total_cull_time,
-      log_update_explore_time;
+      log_update_explore_time,
+      log_update_exploit_time;
 
 };
 
