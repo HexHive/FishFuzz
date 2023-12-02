@@ -1305,9 +1305,15 @@ u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
 u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len);
 
 /* FishFuzz */
+#ifdef __cplusplus
+extern "C" {
+#endif 
 void initialized_dist_map(afl_state_t *afl, struct fishfuzz_info *ff_info);
 void target_ranking(afl_state_t *afl, struct fishfuzz_info *ff_info);
 void update_bitmap_score_explore(afl_state_t *afl, struct fishfuzz_info *ff_info);
+#ifdef __cplusplus
+}
+#endif 
 
 
 /* our RNG wrapper */

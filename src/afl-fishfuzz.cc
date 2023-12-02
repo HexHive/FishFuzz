@@ -132,14 +132,14 @@ void update_bitmap_score_explore(afl_state_t *afl, struct fishfuzz_info *ff_info
         }
         else {
         
-          if (fexp_score < afl->shortest_dist[dst_func]) {
+          if (fexp_score < ff_info->shortest_dist[dst_func]) {
             
             afl->top_rated_explore[dst_func] = q; ff_info->shortest_dist[dst_func] = fexp_score;
             ff_info->last_func_time = get_cur_time_cxx(); ff_info->skip_inter_func = 0;
 
           }
 
-          if (fexp_score == afl->shortest_dist[dst_func]) {
+          if (fexp_score == ff_info->shortest_dist[dst_func]) {
 
             if (!afl->top_rated_explore[dst_func]->fuzz_level) {
               if (fav_factor < afl->top_rated_explore[dst_func]->exec_us * afl->top_rated_explore[dst_func]->len) {
