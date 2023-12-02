@@ -2364,6 +2364,8 @@ int main(int argc, char **argv_orig, char **envp) {
     OKF("Cmplog forkserver successfully started");
 
   }
+  
+  afl->targ_map_size = afl->fsrv.map_size;
 
   load_auto(afl);
 
