@@ -79,9 +79,9 @@ void update_bitmap_score_explore(afl_state_t *afl, struct fishfuzz_info *ff_info
   }
 
   // we only explore each seeds once, so if there are no new seeds, we don't update
-  if (afl->last_explored_item == afl->queued_items && afl->last_explored_item) return ;
+  if (ff_info->last_explored_item == afl->queued_items && ff_info->last_explored_item) return ;
 
-  for (u32 sid = afl->last_explored_item; sid < afl->queued_items; sid ++) {
+  for (u32 sid = ff_info->last_explored_item; sid < afl->queued_items; sid ++) {
 
     struct queue_entry *q = afl->queue_buf[sid];
     u8 has_new_func = 0;
@@ -165,8 +165,8 @@ void update_bitmap_score_explore(afl_state_t *afl, struct fishfuzz_info *ff_info
 
   }
 
-  if (afl->last_explored_item) {
-    for (u32 i = 0; i < afl->last_explored_item; i ++) {
+  if (ff_info->last_explored_item) {
+    for (u32 i = 0; i < ff_info->last_explored_item; i ++) {
 
       if (afl->queue_buf[i]->trace_func) {
         
@@ -179,7 +179,7 @@ void update_bitmap_score_explore(afl_state_t *afl, struct fishfuzz_info *ff_info
     }
   }
 
-  afl->last_explored_item = afl->queued_items;
+  ff_info->last_explored_item = afl->queued_items;
 
 }
 

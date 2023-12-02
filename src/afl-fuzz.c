@@ -536,6 +536,10 @@ int main(int argc, char **argv_orig, char **envp) {
 
   afl->shmem_testcase_mode = 1;  // we always try to perform shmem fuzzing
 
+  struct fishfuzz_info *ff_info = afl->ff_info;
+  afl->shm.fishfuzz_mode = 1;
+  ff_info->last_explored_item = 0;
+
   // still available: HjJkKqruvwz
   while ((opt = getopt(argc, argv,
                        "+a:Ab:B:c:CdDe:E:f:F:g:G:hi:I:l:L:m:M:nNo:Op:P:QRs:S:t:"
@@ -1461,6 +1465,9 @@ int main(int argc, char **argv_orig, char **envp) {
   setup_signal_handlers();
   check_asan_opts(afl);
 
+  ACTF("Loading the distance map...");
+  initialized_dist_map(afl, ff_info);
+
   afl->power_name = power_names[afl->schedule];
 
   if (!afl->non_instrumented_mode && !afl->sync_id) {
@@ -2180,6 +2187,9 @@ int main(int argc, char **argv_orig, char **envp) {
     afl->virgin_crash = ck_realloc(afl->virgin_crash, map_size);
     afl->var_bytes = ck_realloc(afl->var_bytes, map_size);
     afl->top_rated = ck_realloc(afl->top_rated, map_size * sizeof(void *));
+    // currently target all bbs 
+    afl->top_rated_exploit = ck_realloc(afl->top_rated_exploit, map_size * sizeof(void *));
+    afl->targ_map_size = map_size;
     afl->clean_trace = ck_realloc(afl->clean_trace, map_size);
     afl->clean_trace_custom = ck_realloc(afl->clean_trace_custom, map_size);
     afl->first_trace = ck_realloc(afl->first_trace, map_size);
@@ -2189,6 +2199,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
       memset(afl->var_bytes + old_map_size, 0, map_size - old_map_size);
       memset(afl->top_rated + old_map_size, 0, map_size - old_map_size);
+      memset(afl->top_rated_exploit + old_map_size, 0, map_size - old_map_size);
       memset(afl->clean_trace + old_map_size, 0, map_size - old_map_size);
       memset(afl->clean_trace_custom + old_map_size, 0,
              map_size - old_map_size);
@@ -2231,6 +2242,9 @@ int main(int argc, char **argv_orig, char **envp) {
       afl->var_bytes = ck_realloc(afl->var_bytes, new_map_size);
       afl->top_rated =
           ck_realloc(afl->top_rated, new_map_size * sizeof(void *));
+      afl->top_rated_exploit = 
+          ck_realloc(afl->top_rated_exploit, new_map_size * sizeof(void *));
+      afl->targ_map_size = new_map_size;
       afl->clean_trace = ck_realloc(afl->clean_trace, new_map_size);
       afl->clean_trace_custom =
           ck_realloc(afl->clean_trace_custom, new_map_size);
@@ -2241,6 +2255,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         memset(afl->var_bytes + old_map_size, 0, new_map_size - old_map_size);
         memset(afl->top_rated + old_map_size, 0, new_map_size - old_map_size);
+        memset(afl->top_rated_exploit + old_map_size, 0, new_map_size - old_map_size);
         memset(afl->clean_trace + old_map_size, 0, new_map_size - old_map_size);
         memset(afl->clean_trace_custom + old_map_size, 0,
                new_map_size - old_map_size);
@@ -2306,6 +2321,9 @@ int main(int argc, char **argv_orig, char **envp) {
       afl->var_bytes = ck_realloc(afl->var_bytes, new_map_size);
       afl->top_rated =
           ck_realloc(afl->top_rated, new_map_size * sizeof(void *));
+      afl->top_rated_exploit = 
+          ck_realloc(afl->top_rated_exploit, new_map_size * sizeof(void *));
+      afl->targ_map_size = new_map_size;
       afl->clean_trace = ck_realloc(afl->clean_trace, new_map_size);
       afl->clean_trace_custom =
           ck_realloc(afl->clean_trace_custom, new_map_size);
@@ -2316,6 +2334,7 @@ int main(int argc, char **argv_orig, char **envp) {
 
         memset(afl->var_bytes + old_map_size, 0, new_map_size - old_map_size);
         memset(afl->top_rated + old_map_size, 0, new_map_size - old_map_size);
+        memset(afl->top_rated_exploit + old_map_size, 0, new_map_size - old_map_size);
         memset(afl->clean_trace + old_map_size, 0, new_map_size - old_map_size);
         memset(afl->clean_trace_custom + old_map_size, 0,
                new_map_size - old_map_size);
@@ -2737,6 +2756,17 @@ int main(int argc, char **argv_orig, char **envp) {
 
     do {
 
+      // if exploration, pick the next favored seed, else it will waste plenties of time at iteration.
+      if (afl->shm.fishfuzz_mode && ff_info->fish_seed_selection == INTER_FUNC_EXPLORE) {
+        
+        afl->old_seed_selection = 1;
+        
+      } else {
+
+        afl->old_seed_selection = 0;
+      
+      }
+      
       if (likely(!afl->old_seed_selection)) {
 
         if (likely(afl->pending_favored && afl->smallest_favored >= 0)) {
