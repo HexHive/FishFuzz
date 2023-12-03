@@ -486,15 +486,15 @@ void maybe_update_plot_file(afl_state_t *afl, u32 t_bytes, double bitmap_cvg,
 
   /* Fields in the file:
 
-     relative_time, afl->cycles_done, cur_item, corpus_count, corpus_not_fuzzed,
+     relative_time, fish_mode, afl->cycles_done, cur_item, corpus_count, corpus_not_fuzzed,
      favored_not_fuzzed, saved_crashes, saved_hangs, max_depth,
      execs_per_sec, edges_found */
 
   fprintf(afl->fsrv.plot_file,
-          "%llu, %llu, %u, %u, %u, %u, %0.02f%%, %llu, %llu, %u, %0.02f, %llu, "
+          "%llu, %u, %llu, %u, %u, %u, %u, %0.02f%%, %llu, %llu, %u, %0.02f, %llu, "
           "%u\n",
           ((afl->prev_run_time + get_cur_time() - afl->start_time) / 1000),
-          afl->queue_cycle - 1, afl->current_entry, afl->queued_items,
+          afl->ff_info->fish_seed_selection, afl->queue_cycle - 1, afl->current_entry, afl->queued_items,
           afl->pending_not_fuzzed, afl->pending_favored, bitmap_cvg,
           afl->saved_crashes, afl->saved_hangs, afl->max_depth, eps,
           afl->plot_prev_ed, t_bytes);                     /* ignore errors */
