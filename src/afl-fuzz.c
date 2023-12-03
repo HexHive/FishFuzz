@@ -2526,6 +2526,17 @@ int main(int argc, char **argv_orig, char **envp) {
 
     cull_queue(afl);
 
+      // if exploration, pick the next favored seed, else it will waste plenties of time at iteration.
+    if (afl->shm.fishfuzz_mode && ff_info->fish_seed_selection == INTER_FUNC_EXPLORE) {
+        
+      afl->old_seed_selection = 1;
+        
+    } else {
+
+      afl->old_seed_selection = 0;
+      
+    }
+
     if (unlikely((!afl->old_seed_selection &&
                   runs_in_current_cycle > afl->queued_items) ||
                  (afl->old_seed_selection && !afl->queue_cur))) {
@@ -2757,17 +2768,6 @@ int main(int argc, char **argv_orig, char **envp) {
     ++runs_in_current_cycle;
 
     do {
-
-      // if exploration, pick the next favored seed, else it will waste plenties of time at iteration.
-      if (afl->shm.fishfuzz_mode && ff_info->fish_seed_selection == INTER_FUNC_EXPLORE) {
-        
-        afl->old_seed_selection = 1;
-        
-      } else {
-
-        afl->old_seed_selection = 0;
-      
-      }
       
       if (likely(!afl->old_seed_selection)) {
 

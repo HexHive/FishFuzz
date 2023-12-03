@@ -919,9 +919,9 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
     update_bitmap_score_target(afl, q, ff_info);
     ff_prof->log_update_exploit_time += (get_cur_time() - tmp_time_stamp);
 
-    // tmp_time_stamp = get_cur_time();
-    // update_bitmap_score_explore(afl, ff_info);
-    // ff_prof->log_update_exploit_time += (get_cur_time() - tmp_time_stamp);
+    tmp_time_stamp = get_cur_time();
+    update_bitmap_score_explore(afl, ff_info);
+    ff_prof->log_update_exploit_time += (get_cur_time() - tmp_time_stamp);
 
   }
 
@@ -1174,10 +1174,6 @@ void cull_queue(afl_state_t *afl) {
 
     target_ranking(afl, ff_info);
     ff_info->last_update_exec = afl->fsrv.total_execs;
-
-    tmp_time_stamp = get_cur_time();
-    update_bitmap_score_explore(afl, ff_info);
-    ff_prof->log_update_exploit_time += (get_cur_time() - tmp_time_stamp);
 
   }
 
