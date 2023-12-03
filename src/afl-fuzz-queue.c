@@ -1170,7 +1170,7 @@ void cull_queue(afl_state_t *afl) {
 
   if (!afl->shm.fishfuzz_mode) return cull_queue_origin(afl, ff_info);
 
-  if (ff_info->last_update_exec && afl->fsrv.total_execs - ff_info->last_update_exec >= MINIMAL_UPDATE_EXEC) {
+  if (!ff_info->last_update_exec || afl->fsrv.total_execs - ff_info->last_update_exec >= MINIMAL_UPDATE_EXEC) {
 
     target_ranking(afl, ff_info);
     ff_info->last_update_exec = afl->fsrv.total_execs;
