@@ -621,6 +621,8 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   q->depth = afl->cur_depth + 1;
   q->passed_det = passed_det;
   q->trace_mini = NULL;
+  q->trace_targ = NULL;
+  q->trace_func = NULL;
   q->testcase_buf = NULL;
   q->mother = afl->queue_cur;
 
@@ -857,6 +859,8 @@ void update_bitmap_score_origin(afl_state_t *afl, struct queue_entry *q) {
         u32 len = (afl->fsrv.map_size >> 3);
         q->trace_mini = (u8 *)ck_alloc(len);
         minimize_bits(afl, q->trace_mini, afl->fsrv.trace_bits);
+
+        if (!q->trace_targ) q->trace_targ = q->trace_mini;
 
       }
 
@@ -1095,7 +1099,7 @@ void cull_queue_exploit(afl_state_t *afl, struct fishfuzz_info *ff_info) {
       struct queue_entry *selected = afl->top_rated_exploit[i];
 
       if (!selected) continue; 
-      if (selected->favored) continue;
+      if (selected->favored && !selected->trace_targ) continue;
               
       u32 k = len;
 
@@ -1177,16 +1181,16 @@ void cull_queue(afl_state_t *afl) {
 
   }
 
+  if (getenv("FF_TARGET_EXPLOIT")) target_exploit_limit = atoi(getenv("FF_TARGET_EXPLOIT"));
+  if (getenv("FF_INTER_EXPLORE")) inter_explore_limit = atoi(getenv("FF_INTER_EXPLORE"));
+  if (getenv("FF_INTRA_EXPLORE")) intra_explore_limit = atoi(getenv("FF_INTRA_EXPLORE"));
+  if (getenv("FF_NO_EXPLOIT")) ff_info->no_exploitation = 1;
+
   u8 no_pending_fav = (afl->pending_favored + ff_info->queued_retryed == 0);
   u8 find_new_func = (get_cur_time() - ff_info->last_func_time <= inter_explore_limit);
   u8 find_new_targ = (get_cur_time() - ff_info->last_reach_time <= intra_explore_limit);
   u8 trig_new_targ = (get_cur_time() - ff_info->last_trigger_time <= target_exploit_limit);
   u8 just_begin_explore = (get_cur_time() - ff_info->start_func_time <= BEGIN_EXPLORE_TLIMIT);
-
-  if (getenv("FF_TARGET_EXPLOIT")) target_exploit_limit = atoi(getenv("FF_TARGET_EXPLOIT"));
-  if (getenv("FF_INTER_EXPLORE")) inter_explore_limit = atoi(getenv("FF_INTER_EXPLORE"));
-  if (getenv("FF_INTRA_EXPLORE")) intra_explore_limit = atoi(getenv("FF_INTRA_EXPLORE"));
-  if (getenv("FF_NO_EXPLOIT")) ff_info->no_exploitation = 1;
 
   if (ff_info->fish_seed_selection == INTER_FUNC_EXPLORE) {
 
