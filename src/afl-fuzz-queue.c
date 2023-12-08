@@ -1099,7 +1099,7 @@ void cull_queue_exploit(afl_state_t *afl, struct fishfuzz_info *ff_info) {
       struct queue_entry *selected = afl->top_rated_exploit[i];
 
       if (!selected) continue; 
-      if (selected->favored && !selected->trace_targ) continue;
+      if (selected->favored || !selected->trace_targ) continue;
               
       u32 k = len;
 
