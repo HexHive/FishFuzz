@@ -2366,6 +2366,8 @@ int main(int argc, char **argv_orig, char **envp) {
   }
   
   afl->targ_map_size = afl->fsrv.map_size;
+  // afl->top_rated_exploit = ck_realloc(afl->top_rated_exploit, afl->targ_map_size * sizeof(void *));
+  // memset(afl->top_rated_exploit, 0, afl->targ_map_size * sizeof(void *));
 
   load_auto(afl);
 

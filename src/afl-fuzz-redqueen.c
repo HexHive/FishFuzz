@@ -1321,7 +1321,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
     } else {
 
 #ifndef WORD_SIZE_64
-      if (repl <= 0x00ffffffffffffff {
+      if (repl <= 0x00ffffffffffffff) {
 
         new_val = repl << 8;
         u8  scale_len = 0;
@@ -1379,7 +1379,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
         new_vall += (scale_len << 2) + 3;
         ilen = scale_len + 5;
 
-        if (ilen <= its_len) {
+        if (ilen <= its_len && ilen > 1) {
 
           u8 tmpbuf[32];
           memcpy(tmpbuf, buf + idx, ilen);
@@ -1403,7 +1403,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
     if (do_call) {
 
-      if (ilen <= its_len) {
+      if (ilen <= its_len && ilen > 1) {
 
         u8 tmpbuf[32];
         memcpy(tmpbuf, buf + idx, ilen);
