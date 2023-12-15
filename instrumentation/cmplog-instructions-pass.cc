@@ -165,25 +165,25 @@ bool CmpLogInstructions::hookInstrs(Module &M) {
   IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
   IntegerType *Int128Ty = IntegerType::getInt128Ty(C);
 
-/*
-#if LLVM_VERSION_MAJOR >= 9
-  FunctionCallee
-#else
-  Constant *
-#endif
-      c1 = M.getOrInsertFunction("__cmplog_ins_hook1", VoidTy, Int8Ty, Int8Ty,
-                                 Int8Ty
-#if LLVM_VERSION_MAJOR < 5
-                                 ,
-                                 NULL
-#endif
-      );
-#if LLVM_VERSION_MAJOR >= 9
-  FunctionCallee cmplogHookIns1 = c1;
-#else
-  Function *cmplogHookIns1 = cast<Function>(c1);
-#endif
-*/
+  /*
+  #if LLVM_VERSION_MAJOR >= 9
+    FunctionCallee
+  #else
+    Constant *
+  #endif
+        c1 = M.getOrInsertFunction("__cmplog_ins_hook1", VoidTy, Int8Ty, Int8Ty,
+                                   Int8Ty
+  #if LLVM_VERSION_MAJOR < 5
+                                   ,
+                                   NULL
+  #endif
+        );
+  #if LLVM_VERSION_MAJOR >= 9
+    FunctionCallee cmplogHookIns1 = c1;
+  #else
+    Function *cmplogHookIns1 = cast<Function>(c1);
+  #endif
+  */
 
 #if LLVM_VERSION_MAJOR >= 9
   FunctionCallee

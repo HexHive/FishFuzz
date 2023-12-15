@@ -48,7 +48,7 @@
 #include <errno.h>
 
 #include <sys/mman.h>
-#ifndef __HAIKU__
+#if !defined(__HAIKU__) && !defined(__OpenBSD__)
   #include <sys/syscall.h>
 #endif
 #ifndef USEMMAP
@@ -187,7 +187,7 @@ static u8 _is_sancov;
 
 /* Debug? */
 
-static u32 __afl_debug;
+/*static*/ u32 __afl_debug;
 
 /* Already initialized markers */
 
@@ -1955,6 +1955,10 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
   return;
   /*
 
+  return;
+
+  /*
+
   if (unlikely(!__afl_cmp_map || arg1 == arg2)) return;
 
   uintptr_t k = (uintptr_t)__builtin_return_address(0);
@@ -2303,11 +2307,13 @@ static int area_is_valid(void *ptr, size_t len) {
 
   if (unlikely(!ptr || __asan_region_is_poisoned(ptr, len))) { return 0; }
 
-#ifndef __HAIKU__
-  long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
-#else
+#ifdef __HAIKU__
   long r = _kern_write(__afl_dummy_fd[1], -1, ptr, len);
-#endif  // HAIKU
+#elif defined(__OpenBSD__)
+  long r = write(__afl_dummy_fd[1], ptr, len);
+#else
+  long r = syscall(SYS_write, __afl_dummy_fd[1], ptr, len);
+#endif  // HAIKU, OPENBSD
 
   if (r <= 0 || r > len) return 0;
 

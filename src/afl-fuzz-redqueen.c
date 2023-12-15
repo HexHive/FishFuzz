@@ -1421,7 +1421,7 @@ static u8 cmp_extend_encoding(afl_state_t *afl, struct cmp_header *h,
 
   }
 
-  // here we add and subract 1 from the value, but only if it is not an
+  // here we add and subtract 1 from the value, but only if it is not an
   // == or != comparison
   // Bits: 1 = Equal, 2 = Greater, 4 = Lesser, 8 = Float
   //       16 = modified float, 32 = modified integer (modified = wont match
