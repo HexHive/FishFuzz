@@ -470,7 +470,7 @@ src/afl-fishfuzz.o : $(COMM_HDR) src/afl-fishfuzz.cc include/afl-fuzz.h
 	$(CXX) $(CXXFLAGS) -g -c src/afl-fishfuzz.cc -I./include -o src/afl-fishfuzz.o
 
 afl-fuzz: $(COMM_HDR) include/afl-fuzz.h $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o src/afl-fishfuzz.o src/afl-skip-log.o src/afl-skipdet.o | test_x86
-	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o src/afl-fishfuzz.o src/afl-skipdet.o src/afl-skip-log.o -o $@ $(PYFLAGS) $(LDFLAGS) -lm -lstdc++
+	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) $(AFL_FUZZ_FILES) src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o src/afl-fishfuzz.o src/afl-skipdet.o src/afl-skip-log.o -o $@ $(PYFLAGS) $(LDFLAGS) -lm -lstdc++ -lboost_program_options -lboost_graph -ljsoncpp 
 
 afl-showmap: src/afl-showmap.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o $(COMM_HDR) | test_x86
 	$(CC) $(CFLAGS) $(COMPILE_STATIC) $(CFLAGS_FLTO) src/$@.c src/afl-fuzz-mutators.c src/afl-fuzz-python.c src/afl-common.o src/afl-sharedmem.o src/afl-forkserver.o src/afl-performance.o -o $@ $(PYFLAGS) $(LDFLAGS)
