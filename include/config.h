@@ -465,6 +465,33 @@
   #define MAP_INITIAL_SIZE MAP_SIZE
 #endif
 
+
+/* For FishFuzz we provide function/sanitizer instrumentation */
+
+#define FUNC_SIZE_POW2 16
+#define FUNC_SIZE (1U << FUNC_SIZE_POW2)
+ 
+// #define VMAP_COUNT_POW2 20
+// #define VMAP_COUNT (1U << VMAP_COUNT_POW2)
+// #define VMAP_SIZE  VMAP_COUNT
+ 
+#define FISH_SIZE (FUNC_SIZE) 
+#define UNREACHABLE_DIST 0x7FFFFFFF
+
+/* Some time limitation for inter/intra-explore/exploit */
+#define MINIMAL_UPDATE_EXEC   (50 * 1000U)
+#define BEGIN_EXPLORE_TLIMIT  (30 * 60 * 1000U)
+#define INTER_EXPLORE_TLIMIT  (30 * 60 * 1000U)
+#define INTRA_EXPLORE_TLIMIT  (15 * 60 * 1000U)
+#define TARGET_EXPLOIT_TLIMIT (30 * 60 * 1000U)
+#define LOG_FREQUENCY_TLIMIT  (30 * 60 * 1000U)
+
+
+/* AFL FishFuzz */
+
+#define FISHFUZZ_SHM_ENV_VAR "__AFL_FISHFUZZ_SHM_ID"
+
+
 /* Maximum allocator request size (keep well under INT_MAX): */
 
 #define MAX_ALLOC 0x40000000

@@ -58,6 +58,7 @@ fuzz_run_target(afl_state_t *afl, afl_forkserver_t *fsrv, u32 timeout) {
 
 #endif
 
+  if (afl->shm.fish_map) memset(afl->shm.fish_map, 0, FISH_SIZE);
   fsrv_run_result_t res = afl_fsrv_run_target(fsrv, timeout, &afl->stop_soon);
 
   /* If post_run() function is defined in custom mutator, the function will be
@@ -598,6 +599,35 @@ u8 calibrate_case(afl_state_t *afl, struct queue_entry *q, u8 *use_mem,
 
   }
 
+  if (afl->shm.fishfuzz_mode) {
+
+    struct fishfuzz_info *ff_info = afl->ff_info;
+
+    update_function_cov(afl, ff_info, afl->shm.fish_map);
+    
+    if (!q->trace_func) {
+
+      q->trace_func = ck_alloc(sizeof(u8) * afl->func_map_size);
+      memcpy(q->trace_func, afl->shm.fish_map, afl->func_map_size);
+
+    }
+
+    /* TODO: add senario that use ASan trace as target */
+    if (!q->trace_targ) {
+
+      if (!q->trace_mini) {
+
+        u32 len = (afl->fsrv.map_size >> 3);
+        q->trace_mini = ck_alloc(len);
+        minimize_bits(afl, q->trace_mini, afl->fsrv.trace_bits);
+      
+      }
+      q->trace_targ = q->trace_mini;
+
+    }
+
+  }
+
   if (unlikely(afl->fixed_seed)) {
 
     diff_us = (u64)(afl->fsrv.exec_tmout - 1) * (u64)afl->stage_max;
@@ -1068,6 +1098,54 @@ abort_trimming:
 
 }
 
+void update_fishfuzz_states(afl_state_t *afl, struct fishfuzz_info *ff_info) {
+
+  if (unlikely(!ff_info->trigger_bits_count)) {
+  
+    ff_info->trigger_bits_count = ck_alloc(sizeof(u32) * afl->targ_map_size);
+  
+  }
+  if (unlikely(!ff_info->reach_bits_count)) {
+  
+    ff_info->reach_bits_count = ck_alloc(sizeof(u32) * afl->targ_map_size);
+  
+  }
+
+  /* TOFIX: handle if we target ASan labels */
+  u8 *targets_map = afl->fsrv.trace_bits;
+  for (u32 i = 0; i < afl->targ_map_size; i ++) {
+
+    if (unlikely(targets_map[i])) {
+
+      if (!ff_info->reach_bits_count[i]) {
+
+        ff_info->last_reach_time = get_cur_time();
+        ff_info->current_targets_reached ++;
+
+      }
+
+      ff_info->reach_bits_count[i] ++;
+
+      // if (unlikely(targets_map[i] == 2)) {
+        
+
+      //   if (!afl->trigger_bits_count[i]) {
+
+      //     afl->last_trigger_time = get_cur_time();
+      //     afl->current_targets_triggered ++;
+
+      //   }
+
+      //   afl->trigger_bits_count[i] ++;
+
+      // }
+      
+    }
+  }
+
+}
+
+
 /* Write a modified test case, run program, process results. Handle
    error conditions, returning 1 if it's time to bail out. This is
    a helper function for fuzz_one(). */
@@ -1084,6 +1162,13 @@ common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
   }
 
   fault = fuzz_run_target(afl, &afl->fsrv, afl->fsrv.exec_tmout);
+
+  struct fishfuzz_info *ff_info = afl->ff_info;
+  if (unlikely(!(afl->fsrv.total_execs & 0x1FF)) && !ff_info->no_exploitation) {
+    
+    if (afl->shm.fishfuzz_mode) update_fishfuzz_states(afl, ff_info);
+
+  }
 
   if (afl->stop_soon) { return 1; }
 
@@ -1115,7 +1200,14 @@ common_fuzz_stuff(afl_state_t *afl, u8 *out_buf, u32 len) {
 
   /* This handles FAULT_ERROR for us: */
 
-  afl->queued_discovered += save_if_interesting(afl, out_buf, len, fault);
+  u8 is_new = save_if_interesting(afl, out_buf, len, fault);
+  afl->queued_discovered += is_new;
+  
+  if (is_new && (afl->fsrv.total_execs & 0x1FF) && !ff_info->no_exploitation) {
+    
+    update_fishfuzz_states(afl, ff_info);
+
+  } 
 
   if (!(afl->stage_cur % afl->stats_update_freq) ||
       afl->stage_cur + 1 == afl->stage_max) {

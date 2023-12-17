@@ -168,6 +168,10 @@ __thread u32        __afl_prev_ctx;
 struct cmp_map *__afl_cmp_map;
 struct cmp_map *__afl_cmp_map_backup;
 
+static u8 __afl_fishfuzz_initial[FISH_SIZE];
+
+u8 * __afl_fish_map = __afl_fishfuzz_initial;
+
 /* Child pid? */
 
 static s32 child_pid;
@@ -722,6 +726,36 @@ static void __afl_map_shm(void) {
 
   }
 
+  id_str = getenv(FISHFUZZ_SHM_ENV_VAR);
+  
+  if (__afl_debug) {
+    fprintf(stderr, "DEBUG: fishfuzz id_str %s\n",
+            id_str == NULL ? "<null>" : id_str);
+  }
+
+  if (id_str) {
+
+    if ((__afl_dummy_fd[1] = open("/dev/urandom", O_WRONLY)) < 0) {
+
+      if (pipe(__afl_dummy_fd) < 0) { __afl_dummy_fd[1] = 1; }
+
+    }
+
+    u32 shm_id = atoi(id_str);
+
+    __afl_fish_map = shmat(shm_id, NULL, 0);
+
+
+    if (!__afl_fish_map || __afl_fish_map == (void *)-1) {
+
+      perror("shmat for fishfuzz");
+      send_forkserver_error(FS_ERROR_SHM_OPEN);
+      _exit(1);
+
+    }
+
+  }
+
 #ifdef __AFL_CODE_COVERAGE
   char *pcmap_id_str = getenv("__AFL_PCMAP_SHM_ID");
 
@@ -802,6 +836,15 @@ static void __afl_unmap_shm(void) {
 
     __afl_cmp_map = NULL;
     __afl_cmp_map_backup = NULL;
+
+  }
+
+  id_str = getenv(FISHFUZZ_SHM_ENV_VAR);
+
+  if (id_str) {
+
+    shmdt((void *)__afl_fish_map);
+    __afl_fish_map = NULL;
 
   }
 
@@ -1909,6 +1952,8 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
 
   // fprintf(stderr, "hook1 arg0=%02x arg1=%02x attr=%u\n",
   //         (u8) arg1, (u8) arg2, attr);
+  return;
+  /*
 
   return;
 
@@ -1941,7 +1986,6 @@ void __cmplog_ins_hook1(uint8_t arg1, uint8_t arg2, uint8_t attr) {
   __afl_cmp_map->log[k][hits].v1 = arg2;
 
   */
-
 }
 
 void __cmplog_ins_hook2(uint16_t arg1, uint16_t arg2, uint8_t attr) {
@@ -2148,13 +2192,13 @@ void __cmplog_ins_hook16(uint128_t arg1, uint128_t arg2, uint8_t attr) {
 
 void __sanitizer_cov_trace_cmp1(uint8_t arg1, uint8_t arg2) {
 
-  //__cmplog_ins_hook1(arg1, arg2, 0);
+  // __cmplog_ins_hook1(arg1, arg2, 0);
 
 }
 
 void __sanitizer_cov_trace_const_cmp1(uint8_t arg1, uint8_t arg2) {
 
-  //__cmplog_ins_hook1(arg1, arg2, 0);
+  // __cmplog_ins_hook1(arg1, arg2, 0);
 
 }
 

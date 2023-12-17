@@ -215,6 +215,7 @@ struct queue_entry {
       has_new_cov,                      /* Triggers new coverage?           */
       var_behavior,                     /* Variable behavior?               */
       favored,                          /* Currently favored?               */
+      retry,
       fs_redundant,                     /* Marked as redundant in the fs?   */
       is_ascii,                         /* Is the input just ascii text?    */
       disabled;                         /* Is disabled from fuzz selection  */
@@ -237,8 +238,12 @@ struct queue_entry {
       custom,                           /* Marker for custom mutators       */
       stats_mutated;                    /* stats: # of mutations performed  */
 
-  u8 *trace_mini;                       /* Trace bytes, if kept             */
-  u32 tc_ref;                           /* Trace bytes ref count            */
+  u8 *trace_mini,                       /* Trace bytes, if kept             */
+     *trace_func, 
+     *trace_targ;
+  u32 tc_ref,                           /* Trace bytes ref count            */
+      tc_ref_vanilla,
+      tc_ref_exploit;
 
 #ifdef INTROSPECTION
   u32 bitsmap_size;
@@ -351,6 +356,14 @@ enum {
   POWER_SCHEDULES_NUM
 
 };
+
+/* for fishfuzz's seed selection */
+enum {
+  /* 00 */ INTRA_FUNC_EXPLORE,
+  /* 01 */ INTER_FUNC_EXPLORE,
+  /* 02 */ TARGET_EXPLOIT
+};
+
 
 /* Python stuff */
 #ifdef USE_PYTHON
@@ -484,6 +497,76 @@ struct foreign_sync {
 
 };
 
+struct fishfuzz_profile {
+
+  u8  *fish_debug_log,                  
+      *exploit_debug_log,
+      *cull_debug_log,
+      *function_debug_log,
+      *seed_selec_log,
+      *exploit_log,
+      *dev_log;
+  
+  FILE *fish_debug_fd,
+      *exploit_debug_fd,
+      *cull_debug_fd,
+      *function_debug_fd,
+      *seed_selec_fd,
+      *exploit_fd,
+      *dev_fd;
+  
+  u64 last_log_time,
+      log_cull_origin_time,
+      log_cull_explore_time,
+      log_cull_exploit_time,
+      log_cull_other_time,
+      log_total_fuzz_time,
+      log_total_iteration_time,
+      log_update_explore_time,
+      log_update_exploit_time;
+
+};
+
+struct fishfuzz_info {
+
+  u32 *reach_bits_count,
+      *trigger_bits_count;
+  
+  u32 current_func_covered,
+      current_targets_reached,
+      current_targets_triggered;
+  
+  u32 queued_retryed,
+      queued_fuzzed_favored,
+      queued_fuzzed_non_favored,
+      queued_fuzzed_retryed;
+  
+  u64 last_reach_time,
+      last_trigger_time,
+      last_func_time,
+      start_func_time,
+      start_intra_time,
+      last_update_exec;
+
+  u8  function_changed,
+      target_changed,
+      skip_inter_func,
+      fish_seed_selection,
+      no_exploitation;
+  
+  u32 last_explored_item;
+
+  u32 exploit_threshould; 
+
+  u32 *shortest_dist;
+
+  u8 *unvisited_func_map, 
+     *iterated_func_map;
+
+  struct fishfuzz_profile *prof;
+
+};
+
 typedef struct afl_state {
 
   /* Position of this state in the global states list */
@@ -598,6 +681,7 @@ typedef struct afl_state {
       reinit_table;                     /* reinit the queue weight table    */
 
   u8 *virgin_bits,                      /* Regions yet untouched by fuzzing */
+      *virgin_funcs,
       *virgin_tmout,                    /* Bits we haven't seen in tmouts   */
       *virgin_crash;                    /* Bits we haven't seen in crashes  */
 
@@ -706,7 +790,13 @@ typedef struct afl_state {
   // growing buf
   struct queue_entry **queue_buf;
 
-  struct queue_entry **top_rated;           /* Top entries for bitmap bytes */
+  u32 func_map_size, 
+      targ_map_size;
+  struct queue_entry **top_rated,           /* Top entries for bitmap bytes */
+                     **top_rated_explore,
+                     **top_rated_exploit;
+  
+  struct fishfuzz_info *ff_info;
 
   struct extra_data *extras;            /* Extra tokens to fuzz with        */
   u32                extras_cnt;        /* Total number of tokens read      */
@@ -1286,6 +1376,18 @@ u8 common_fuzz_cmplog_stuff(afl_state_t *afl, u8 *out_buf, u32 len);
 
 /* RedQueen */
 u8 input_to_state_stage(afl_state_t *afl, u8 *orig_buf, u8 *buf, u32 len);
+
+/* FishFuzz */
+#ifdef __cplusplus
+extern "C" {
+#endif 
+void initialized_dist_map(afl_state_t *afl, struct fishfuzz_info *ff_info);
+void target_ranking(afl_state_t *afl, struct fishfuzz_info *ff_info);
+void update_bitmap_score_explore(afl_state_t *afl, struct fishfuzz_info *ff_info);
+#ifdef __cplusplus
+}
+#endif 
+
 
 /* our RNG wrapper */
 AFL_RAND_RETURN rand_next(afl_state_t *afl);

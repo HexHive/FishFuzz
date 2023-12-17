@@ -2701,7 +2701,7 @@ static u8 rtn_fuzz(afl_state_t *afl, u32 key, u8 *orig_buf, u8 *buf, u8 *cbuf,
   hshape = SHAPE_BYTES(h->shape);
 
   if (hshape < 2) { return 0; }
-
+  
   if (h->hits > CMP_MAP_RTN_H) {
 
     loggeds = CMP_MAP_RTN_H;

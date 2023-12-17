@@ -1,0 +1,202 @@
+diff --git a/.gitignore b/.gitignore
+index b33fbbf93..fbf41767b 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -6,6 +6,8 @@
+ # as most of those are useless.
+ #==============================================================================#
+ 
++# binutils package
++/binutils
+ #==============================================================================#
+ # File extensions to be ignored anywhere in the tree.
+ #==============================================================================#
+diff --git a/clang/lib/CodeGen/BackendUtil.cpp b/clang/lib/CodeGen/BackendUtil.cpp
+index 52bcd971d..c287ebba8 100644
+--- a/clang/lib/CodeGen/BackendUtil.cpp
++++ b/clang/lib/CodeGen/BackendUtil.cpp
+@@ -84,6 +84,7 @@
+ #include "llvm/Transforms/Utils/NameAnonGlobals.h"
+ #include "llvm/Transforms/Utils/SymbolRewriter.h"
+ #include "llvm/Transforms/Utils/UniqueInternalLinkageNames.h"
++#include "llvm/Analysis/CallPrinter.h"
+ #include <memory>
+ using namespace clang;
+ using namespace llvm;
+@@ -276,6 +277,13 @@ static void addMemProfilerPasses(const PassManagerBuilder &Builder,
+   PM.add(createModuleMemProfilerLegacyPassPass());
+ }
+ 
++static void addFishFuzzASanPasses(const PassManagerBuilder &Builder,
++                                      legacy::PassManagerBase &PM) {
++
++  PM.add(createFishFuzzASanPass());
++
++}
++
+ static void addAddressSanitizerPasses(const PassManagerBuilder &Builder,
+                                       legacy::PassManagerBase &PM) {
+   const PassManagerBuilderWrapper &BuilderWrapper =
+@@ -730,6 +738,10 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
+                            addAddressSanitizerPasses);
+     PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
+                            addAddressSanitizerPasses);
++    PMBuilder.addExtension(PassManagerBuilder::EP_OptimizerLast,
++		           addFishFuzzASanPasses);
++    PMBuilder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
++		           addFishFuzzASanPasses);
+   }
+ 
+   if (LangOpts.Sanitize.has(SanitizerKind::KernelAddress)) {
+@@ -1193,6 +1205,15 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
+ 
+   ModulePassManager MPM(CodeGenOpts.DebugPassManager);
+ 
++  if (getenv("USE_FF_INST")) {
++    // errs() << "Working with FF analysis!\n";
++    PB.registerOptimizerLastEPCallback(
++      [](ModulePassManager &MPM, PassBuilder::OptimizationLevel Level) {
++    MPM.addPass(FishFuzzASanPass());
++    MPM.addPass(CallGraphDOTPrinterPass());
++    });
++  }
++
+   if (!CodeGenOpts.DisableLLVMPasses) {
+     // Map our optimization levels into one of the distinct levels used to
+     // configure the pipeline.
+diff --git a/llvm/include/llvm/Analysis/CallPrinter.h b/llvm/include/llvm/Analysis/CallPrinter.h
+index 8d4159f3d..68bd8a79a 100644
+--- a/llvm/include/llvm/Analysis/CallPrinter.h
++++ b/llvm/include/llvm/Analysis/CallPrinter.h
+@@ -14,6 +14,10 @@
+ #ifndef LLVM_ANALYSIS_CALLPRINTER_H
+ #define LLVM_ANALYSIS_CALLPRINTER_H
+ 
++#include "llvm/IR/Function.h"
++#include "llvm/IR/Module.h"
++#include "llvm/IR/PassManager.h"
++
+ namespace llvm {
+ 
+ class ModulePass;
+@@ -21,6 +25,17 @@ class ModulePass;
+ ModulePass *createCallGraphViewerPass();
+ ModulePass *createCallGraphDOTPrinterPass();
+ 
++class CallGraphDOTPrinterPass
++    : public PassInfoMixin<CallGraphDOTPrinterPass> {
++public:
++  explicit CallGraphDOTPrinterPass();
++  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
++  std::string encodePathStr(std::string);
++
++  static bool isRequired() { return true; }
++
++};
++
+ } // end namespace llvm
+ 
+ #endif
+diff --git a/llvm/include/llvm/Transforms/Instrumentation/AddressSanitizer.h b/llvm/include/llvm/Transforms/Instrumentation/AddressSanitizer.h
+index 53ad0cbf9..0646fbdc7 100644
+--- a/llvm/include/llvm/Transforms/Instrumentation/AddressSanitizer.h
++++ b/llvm/include/llvm/Transforms/Instrumentation/AddressSanitizer.h
+@@ -132,6 +132,16 @@ private:
+   bool UseOdrIndicator;
+ };
+ 
++class FishFuzzASanPass
++    : public PassInfoMixin<FishFuzzASanPass> {
++public:
++  explicit FishFuzzASanPass();
++  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
++  static bool isRequired() { return true; }
++
++};
++
++ModulePass *createFishFuzzASanPass();
+ // Insert AddressSanitizer (address sanity checking) instrumentation
+ FunctionPass *createAddressSanitizerFunctionPass(bool CompileKernel = false,
+                                                  bool Recover = false,
+diff --git a/llvm/lib/Analysis/CallPrinter.cpp b/llvm/lib/Analysis/CallPrinter.cpp
+index 872a91ad7..e971cc7ff 100644
+--- a/llvm/lib/Analysis/CallPrinter.cpp
++++ b/llvm/lib/Analysis/CallPrinter.cpp
+@@ -24,6 +24,10 @@
+ #include "llvm/ADT/DenseMap.h"
+ #include "llvm/ADT/SmallSet.h"
+ 
++#include <stdlib.h>
++#include <fstream>
++#include <iostream>
++
+ using namespace llvm;
+ 
+ // This option shows static (relative) call counts.
+@@ -307,3 +311,56 @@ ModulePass *llvm::createCallGraphViewerPass() { return new CallGraphViewer(); }
+ ModulePass *llvm::createCallGraphDOTPrinterPass() {
+   return new CallGraphDOTPrinter();
+ }
++
++// DOT Printer for new pass manager
++
++CallGraphDOTPrinterPass::CallGraphDOTPrinterPass() {}
++
++
++std::string CallGraphDOTPrinterPass::encodePathStr(std::string Path) {
++
++  std::string from = "/", to = ".";
++  size_t pos = 0;
++  while ((pos = Path.find(from)) != std::string::npos) {
++
++    if (pos == 0) Path.erase(pos, 1);
++    else Path.replace(pos, 1, to);
++  
++  }
++  return Path;
++
++}
++
++PreservedAnalyses CallGraphDOTPrinterPass::run(Module &M,
++                                               ModuleAnalysisManager &AM) {
++  FunctionAnalysisManager &FAM =
++      AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
++
++  auto LookupBFI = [&FAM](Function &F) {
++    return &FAM.getResult<BlockFrequencyAnalysis>(F);
++  };
++
++  std::string TempDir, Filename;
++  if (getenv("FF_TMP_DIR")) {
++
++    TempDir = getenv("FF_TMP_DIR");
++    Filename = TempDir + "/cg/" + encodePathStr(std::string(M.getModuleIdentifier())) + ".callgraph.dot";
++    
++  } else perror("Please set the FF_TMP_DIR before start!\n");
++
++  std::error_code EC;
++  raw_fd_ostream File(Filename, EC, sys::fs::F_Text);
++
++  CallGraph CG(M);
++  CallGraphDOTInfo CFGInfo(&M, &CG, LookupBFI);
++
++  if (!EC)
++    WriteGraph(File, &CFGInfo);
++  else
++    errs() << "  error opening file for writing!";
++  // errs() << "\n";
++
++  // doCallGraphDOTPrinting(M, LookupBFI);
++
++  return PreservedAnalyses::all();
++}
+diff --git a/llvm/lib/Transforms/Instrumentation/CMakeLists.txt b/llvm/lib/Transforms/Instrumentation/CMakeLists.txt
+index 3b29c3df6..0175d0c95 100644
+--- a/llvm/lib/Transforms/Instrumentation/CMakeLists.txt
++++ b/llvm/lib/Transforms/Instrumentation/CMakeLists.txt
+@@ -1,4 +1,5 @@
+ add_llvm_component_library(LLVMInstrumentation
++  FishFuzzAddressSanitizer.cpp
+   AddressSanitizer.cpp
+   BoundsChecking.cpp
+   CGProfile.cpp

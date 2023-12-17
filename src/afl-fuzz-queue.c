@@ -124,6 +124,11 @@ void create_alias_table(afl_state_t *afl) {
 
       struct queue_entry *q = afl->queue_buf[i];
 
+      if (afl->shm.fishfuzz_mode && afl->ff_info->fish_seed_selection == TARGET_EXPLOIT) 
+        q->tc_ref = q->tc_ref_exploit;
+      else 
+        q->tc_ref = q->tc_ref_vanilla;
+
       // disabled entries might have timings and bitmap values
       if (likely(!q->disabled)) {
 
@@ -582,6 +587,28 @@ static u8 check_if_text(afl_state_t *afl, struct queue_entry *q) {
 
 }
 
+void update_function_cov(afl_state_t *afl, struct fishfuzz_info *ff_info, u8* fish_map) {
+  
+  if (unlikely(!afl->virgin_funcs)) {
+
+    afl->virgin_funcs = ck_alloc(sizeof(u8) * afl->func_map_size);
+  
+  }
+
+  for (u32 i = 0; i < afl->func_map_size; i ++) {
+  
+    if (fish_map[i] && !afl->virgin_funcs[i]) {
+  
+      afl->virgin_funcs[i] = 1;
+      ff_info->function_changed = 1;
+      ff_info->current_func_covered += 1;
+  
+    }
+  
+  }
+
+}
+
 /* Append new test case to the queue. */
 
 void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
@@ -594,6 +621,8 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   q->depth = afl->cur_depth + 1;
   q->passed_det = passed_det;
   q->trace_mini = NULL;
+  q->trace_targ = NULL;
+  q->trace_func = NULL;
   q->testcase_buf = NULL;
   q->mother = afl->queue_cur;
 
@@ -665,6 +694,35 @@ void add_to_queue(afl_state_t *afl, u8 *fname, u32 len, u8 passed_det) {
   }
 
   q->skipdet_e = (struct skipdet_entry *)ck_alloc(sizeof(struct skipdet_entry));
+  if (afl->shm.fishfuzz_mode && afl->shm.fish_map) {
+
+    struct fishfuzz_info *ff_info = afl->ff_info;
+
+    update_function_cov(afl, ff_info, afl->shm.fish_map);
+    
+    if (!q->trace_func) {
+
+      q->trace_func = ck_alloc(sizeof(u8) * afl->func_map_size);
+      memcpy(q->trace_func, afl->shm.fish_map, afl->func_map_size);
+
+    }
+
+    /* TODO: add senario that use ASan trace as target */
+    if (!q->trace_targ) {
+
+      if (!q->trace_mini) {
+
+        u32 len = (afl->fsrv.map_size >> 3);
+        q->trace_mini = ck_alloc(len);
+        minimize_bits(afl, q->trace_mini, afl->fsrv.trace_bits);
+      
+      }
+      q->trace_targ = q->trace_mini;
+
+    }
+
+
+  }
 
 }
 
@@ -680,6 +738,8 @@ void destroy_queue(afl_state_t *afl) {
 
     q = afl->queue_buf[i];
     ck_free(q->fname);
+    if (q->trace_targ != q->trace_mini) ck_free(q->trace_targ);
+    ck_free(q->trace_func);
     ck_free(q->trace_mini);
     if (q->skipdet_e) {
 
@@ -706,7 +766,7 @@ void destroy_queue(afl_state_t *afl) {
    previous contender, or if the contender has a more favorable speed x size
    factor. */
 
-void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
+void update_bitmap_score_origin(afl_state_t *afl, struct queue_entry *q) {
 
   u32 i;
   u64 fav_factor;
@@ -781,7 +841,15 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
         /* Looks like we're going to win. Decrease ref count for the
            previous winner, discard its afl->fsrv.trace_bits[] if necessary. */
 
-        if (!--afl->top_rated[i]->tc_ref) {
+        if (!--afl->top_rated[i]->tc_ref_vanilla) {
+
+          /* for fishfuzz without ASan, we target all basic blocks,
+             release trace_targ to avoid UAF */
+          if (afl->top_rated[i]->trace_targ == afl->top_rated[i]->trace_mini) {
+          
+            afl->top_rated[i]->trace_targ = 0;
+          
+          }
 
           ck_free(afl->top_rated[i]->trace_mini);
           afl->top_rated[i]->trace_mini = 0;
@@ -793,13 +861,15 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
       /* Insert ourselves as the new winner. */
 
       afl->top_rated[i] = q;
-      ++q->tc_ref;
+      ++q->tc_ref_vanilla;
 
       if (!q->trace_mini) {
 
         u32 len = (afl->fsrv.map_size >> 3);
         q->trace_mini = (u8 *)ck_alloc(len);
         minimize_bits(afl, q->trace_mini, afl->fsrv.trace_bits);
+
+        if (!q->trace_targ) q->trace_targ = q->trace_mini;
 
       }
 
@@ -811,13 +881,72 @@ void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
 
 }
 
+
+void update_bitmap_score_target(afl_state_t *afl, struct queue_entry *q, struct fishfuzz_info *ff_info) {
+
+  u32 i;
+  u64 fav_factor = q->exec_us * q->len;
+
+  if (!q->trace_targ || !afl->top_rated_exploit) return ;
+  
+  /* For every byte set in afl->fsrv.trace_bits[], see if there is a previous
+     winner, and how it compares to us. */
+  for (i = 0; i < afl->targ_map_size; ++i) {
+
+    if (q->trace_targ[i >> 3] & (1 << (i & 0x7))) {
+
+      if (afl->top_rated_exploit[i]) {
+
+        /* Faster-executing or smaller test cases are favored. */
+
+        if (fav_factor > afl->top_rated_exploit[i]->exec_us * afl->top_rated_exploit[i]->len) continue;
+
+        /* We're gonna to win */
+
+        --afl->top_rated_exploit[i]->tc_ref_exploit;
+
+      }
+
+      /* Insert ourselves as the new winner. */
+
+      afl->top_rated_exploit[i] = q;
+      ff_info->target_changed = 1;
+      ++q->tc_ref_exploit;
+
+    }
+
+  }
+
+}
+
+void update_bitmap_score(afl_state_t *afl, struct queue_entry *q) {
+
+  update_bitmap_score_origin(afl, q);
+
+  if (afl->shm.fishfuzz_mode && afl->shm.fish_map) {
+
+    struct fishfuzz_info *ff_info = afl->ff_info;
+    struct fishfuzz_profile *ff_prof = ff_info->prof;
+    
+    u64 tmp_time_stamp = get_cur_time();
+    update_bitmap_score_target(afl, q, ff_info);
+    ff_prof->log_update_exploit_time += (get_cur_time() - tmp_time_stamp);
+
+    tmp_time_stamp = get_cur_time();
+    update_bitmap_score_explore(afl, ff_info);
+    ff_prof->log_update_exploit_time += (get_cur_time() - tmp_time_stamp);
+
+  }
+
+}
+
 /* The second part of the mechanism discussed above is a routine that
    goes over afl->top_rated[] entries, and then sequentially grabs winners for
    previously-unseen bytes (temp_v) and marks them as favored, at least
    until the next run. The favored entries are given more air time during
    all fuzzing steps. */
 
-void cull_queue(afl_state_t *afl) {
+void cull_queue_origin(afl_state_t *afl, struct fishfuzz_info *ff_info) {
 
   if (likely(!afl->score_changed || afl->non_instrumented_mode)) { return; }
 
@@ -831,6 +960,8 @@ void cull_queue(afl_state_t *afl) {
 
   afl->queued_favored = 0;
   afl->pending_favored = 0;
+  ff_info->queued_retryed = 0;
+
 
   for (i = 0; i < afl->queued_items; i++) {
 
@@ -895,6 +1026,268 @@ void cull_queue(afl_state_t *afl) {
 
   afl->reinit_table = 1;
 
+}
+
+void cull_queue_explore(afl_state_t *afl, struct fishfuzz_info *ff_info) {
+  
+  if (likely(!ff_info->function_changed || afl->non_instrumented_mode)) { return; }
+
+  u32 i;
+
+  ff_info->function_changed = 0;
+
+  afl->queued_favored = 0;
+  afl->pending_favored = 0;
+  ff_info->queued_retryed = 0;
+
+  for (i = 0; i < afl->queued_items; i++) {
+
+    afl->queue_buf[i]->favored = 0;
+    afl->queue_buf[i]->retry = 0;
+
+  }
+
+  for (i = 0; i < afl->func_map_size; i++) {
+    if (afl->top_rated_explore[i] && !afl->virgin_funcs[i]) {
+      
+      if (afl->top_rated_explore[i]->favored) continue;
+
+      afl->top_rated_explore[i]->favored = 1;
+      afl->queued_favored++;
+
+      if (!afl->top_rated_explore[i]->was_fuzzed) afl->pending_favored++;
+
+    }
+  }
+
+  if (!afl->pending_favored) ff_info->skip_inter_func = 1;
+
+  for (i = 0; i < afl->queued_items; i++) {
+
+    mark_as_redundant(afl, afl->queue_buf[i], !afl->queue_buf[i]->favored);
+
+  }
+
+}
+
+void cull_queue_exploit(afl_state_t *afl, struct fishfuzz_info *ff_info) {
+  #define TRACE_MINI_VISITED(trace_mini, idx) (trace_mini[idx >> 3] & (1 << (idx & 7)))
+  
+  // struct queue_entry* q;
+  u8 *temp_v = afl->map_tmp_buf;
+  u32 len = (afl->targ_map_size >> 3), i;
+
+  /* if score not changed and we've already have favored seeds */
+  u8 should_skip = (afl->pending_favored + ff_info->queued_retryed == 0);
+  if (afl->non_instrumented_mode || (!ff_info->target_changed && !should_skip)) return;
+
+  /* for first cull_queue, ignore */
+  if (!ff_info->exploit_threshould) return ;
+
+  ff_info->target_changed = 0;
+  memset(temp_v, 255, len);
+
+  afl->queued_favored = 0;
+  afl->pending_favored = 0;
+  ff_info->queued_retryed = 0;
+
+  for (i = 0; i < afl->queued_items; i++) {
+
+    afl->queue_buf[i]->favored = 0;
+    afl->queue_buf[i]->retry = 0;
+
+  }
+
+  // u32 total_visit_cnt = 0, total_n_bugs = 0;
+  for (i = 0; i < afl->targ_map_size; i++) {
+    if ((temp_v[i >> 3] & (1 << (i & 7))) && ff_info->reach_bits_count[i]) {
+
+      if (ff_info->reach_bits_count[i] > ff_info->exploit_threshould) continue;
+      if (ff_info->trigger_bits_count[i]) continue;
+      
+      struct queue_entry *selected = afl->top_rated_exploit[i];
+
+      if (!selected) continue; 
+      if (selected->favored || !selected->trace_targ) continue;
+              
+      u32 k = len;
+
+      while (k--) 
+        if (selected->trace_targ[k]) 
+          temp_v[k] &= ~selected->trace_targ[k];
+        
+      selected->favored = 1;
+      afl->queued_favored++;
+
+      if (!selected->was_fuzzed) afl->pending_favored++;
+
+    }
+  }
+
+  /* maybe retry some seeds */
+  if (afl->queued_favored && afl->pending_favored * 100 / afl->queued_favored < 10) {
+
+    u64 total_visit_cnt = 0, total_trigger_cnt = 0, avg_violation_visit = 0; // avg_violation_trigger = 0
+    for (u32 i = 0; i < afl->targ_map_size; i ++) {
+
+      if (ff_info->trigger_bits_count[i]) total_trigger_cnt += ff_info->trigger_bits_count[i];
+      if (ff_info->reach_bits_count[i]) total_visit_cnt += ff_info->reach_bits_count[i];
+    
+    }
+
+    // if (ff_info->current_targets_triggered) avg_violation_trigger = total_trigger_cnt / ff_info->current_targets_triggered;
+    if (ff_info->current_targets_reached) avg_violation_visit = total_visit_cnt / ff_info->current_targets_reached;
+    /* pick up favored seeds that is not well explored */
+    if (avg_violation_visit) {
+      for (i = 0; i < afl->targ_map_size; i++) {
+        if (ff_info->reach_bits_count[i] && !ff_info->trigger_bits_count[i] && 
+            ff_info->reach_bits_count[i] <= ff_info->exploit_threshould / 10) {
+          struct queue_entry *selected = afl->top_rated_exploit[i];
+
+          if (!selected) continue;
+          /* only select already fuzzed favored seed and not marked as retry */
+          if (!selected->favored || !selected->was_fuzzed || selected->retry) continue;
+
+          if (avg_violation_visit > ff_info->reach_bits_count[i]) {
+            
+            ff_info->queued_retryed ++;
+            selected->retry = 1;
+            
+          }
+        
+        }
+      }
+    }
+
+  }
+
+  for (i = 0; i < afl->queued_items; i++) {
+
+    mark_as_redundant(afl, afl->queue_buf[i], !afl->queue_buf[i]->favored);
+
+  }
+
+}
+
+/* FishFuzz dispatcher, */
+void cull_queue(afl_state_t *afl) {
+
+  u64 tmp_time_stamp;
+
+  u64 inter_explore_limit = INTER_EXPLORE_TLIMIT,
+      intra_explore_limit = INTRA_EXPLORE_TLIMIT,
+      target_exploit_limit = TARGET_EXPLOIT_TLIMIT;
+  
+  struct fishfuzz_info *ff_info = afl->ff_info;
+  struct fishfuzz_profile *ff_prof = ff_info->prof;
+
+  if (!afl->shm.fishfuzz_mode) return cull_queue_origin(afl, ff_info);
+
+  if (!ff_info->last_update_exec || afl->fsrv.total_execs - ff_info->last_update_exec >= MINIMAL_UPDATE_EXEC) {
+
+    target_ranking(afl, ff_info);
+    ff_info->last_update_exec = afl->fsrv.total_execs;
+
+  }
+
+  if (getenv("FF_TARGET_EXPLOIT")) target_exploit_limit = atoi(getenv("FF_TARGET_EXPLOIT"));
+  if (getenv("FF_INTER_EXPLORE")) inter_explore_limit = atoi(getenv("FF_INTER_EXPLORE"));
+  if (getenv("FF_INTRA_EXPLORE")) intra_explore_limit = atoi(getenv("FF_INTRA_EXPLORE"));
+  if (getenv("FF_NO_EXPLOIT")) ff_info->no_exploitation = 1;
+
+  u8 no_pending_fav = (afl->pending_favored + ff_info->queued_retryed == 0);
+  u8 find_new_func = (get_cur_time() - ff_info->last_func_time <= inter_explore_limit);
+  u8 find_new_targ = (get_cur_time() - ff_info->last_reach_time <= intra_explore_limit);
+  u8 trig_new_targ = (get_cur_time() - ff_info->last_trigger_time <= target_exploit_limit);
+  u8 just_begin_explore = (get_cur_time() - ff_info->start_func_time <= BEGIN_EXPLORE_TLIMIT);
+
+  if (ff_info->fish_seed_selection == INTER_FUNC_EXPLORE) {
+
+    if ((!just_begin_explore && !find_new_func) || no_pending_fav || ff_info->skip_inter_func) {
+
+      if (no_pending_fav) ff_info->skip_inter_func = 1;
+
+      if (find_new_targ || ff_info->no_exploitation) {
+
+        afl->score_changed = 1;
+        ff_info->start_intra_time = get_cur_time();
+        ff_info->last_reach_time = get_cur_time();
+        ff_info->fish_seed_selection = INTRA_FUNC_EXPLORE;
+        // write_fishfuzz_log(afl, INTER_FUNC_EXPLORE, INTRA_FUNC_EXPLORE);
+      
+      } else {
+        
+        ff_info->target_changed = 1;
+        ff_info->last_trigger_time = get_cur_time();
+        ff_info->fish_seed_selection = TARGET_EXPLOIT;
+        // write_fishfuzz_log(afl, INTER_FUNC_EXPLORE, TARGET_EXPLOIT);
+
+      }
+    }
+  } else if (ff_info->fish_seed_selection == INTRA_FUNC_EXPLORE) {
+
+    if (find_new_func && !ff_info->skip_inter_func) {
+
+      ff_info->function_changed = 1;
+      // afl->last_func_time = get_cur_time();
+      ff_info->start_func_time = get_cur_time();
+      ff_info->fish_seed_selection = INTER_FUNC_EXPLORE;
+      // write_fishfuzz_log(afl, INTRA_FUNC_EXPLORE, INTER_FUNC_EXPLORE);
+    
+    } else {
+      // for intra-explore, we could accept non pending interesting seeds
+      if (!find_new_targ && !ff_info->no_exploitation) {
+    
+        ff_info->target_changed = 1;
+        ff_info->last_trigger_time = get_cur_time();
+        ff_info->fish_seed_selection = TARGET_EXPLOIT;
+        // write_fishfuzz_log(afl, INTRA_FUNC_EXPLORE, TARGET_EXPLOIT);
+    
+      }
+
+    }
+  } else if (ff_info->fish_seed_selection == TARGET_EXPLOIT) {
+
+    if (find_new_func && !ff_info->skip_inter_func) {
+
+      ff_info->function_changed = 1;
+      // afl->last_func_time = get_cur_time();
+      ff_info->start_func_time = get_cur_time();
+      ff_info->fish_seed_selection = INTER_FUNC_EXPLORE;
+      // write_fishfuzz_log(afl, TARGET_EXPLOIT, INTER_FUNC_EXPLORE);
+    
+    }
+
+    if (!trig_new_targ || no_pending_fav) {
+
+      afl->score_changed = 1;
+      ff_info->start_intra_time = get_cur_time();
+      ff_info->last_reach_time = get_cur_time();
+      ff_info->fish_seed_selection = INTRA_FUNC_EXPLORE;
+      // write_fishfuzz_log(afl, TARGET_EXPLOIT, INTRA_FUNC_EXPLORE);
+    
+    }
+
+  } else PFATAL("Invalid mode given!");
+
+  tmp_time_stamp = get_cur_time();
+  switch (ff_info->fish_seed_selection) {
+    case INTRA_FUNC_EXPLORE : 
+      cull_queue_origin(afl, ff_info);
+      ff_prof->log_cull_origin_time += (get_cur_time() - tmp_time_stamp);
+      return ;
+    case INTER_FUNC_EXPLORE : 
+      cull_queue_explore(afl, ff_info);
+      ff_prof->log_cull_explore_time += (get_cur_time() - tmp_time_stamp);
+      return ;
+    case TARGET_EXPLOIT : 
+      cull_queue_exploit(afl, ff_info);
+      ff_prof->log_cull_exploit_time += (get_cur_time() - tmp_time_stamp);
+      return ;
+    default :
+      PFATAL("unsupport mode in queue cull!");
+  }
+  return cull_queue_origin(afl, ff_info);
 }
 
 /* Calculate case desirability score to adjust the length of havoc fuzzing.

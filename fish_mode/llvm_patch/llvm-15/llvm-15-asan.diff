@@ -1,0 +1,141 @@
+diff --git a/clang/lib/CodeGen/BackendUtil.cpp b/clang/lib/CodeGen/BackendUtil.cpp
+index 7c4e35634e5d..1511ea8a304c 100644
+--- a/clang/lib/CodeGen/BackendUtil.cpp
++++ b/clang/lib/CodeGen/BackendUtil.cpp
+@@ -86,6 +86,7 @@
+ #include "llvm/Transforms/Utils/ModuleUtils.h"
+ #include "llvm/Transforms/Utils/NameAnonGlobals.h"
+ #include "llvm/Transforms/Utils/SymbolRewriter.h"
++#include "llvm/Analysis/CallPrinter.h"
+ #include <memory>
+ using namespace clang;
+ using namespace llvm;
+@@ -678,6 +679,8 @@ static void addSanitizers(const Triple &TargetTriple,
+         Opts.UseAfterReturn = CodeGenOpts.getSanitizeAddressUseAfterReturn();
+         MPM.addPass(ModuleAddressSanitizerPass(
+             Opts, UseGlobalGC, UseOdrIndicator, DestructorKind));
++        MPM.addPass(FishFuzzASanPass());
++        MPM.addPass(CallGraphDOTPrinterPass());
+       }
+     };
+     ASanPass(SanitizerKind::Address, false);
+diff --git a/llvm/include/llvm/Analysis/CallPrinter.h b/llvm/include/llvm/Analysis/CallPrinter.h
+index d325d0010371..ff24b2273658 100644
+--- a/llvm/include/llvm/Analysis/CallPrinter.h
++++ b/llvm/include/llvm/Analysis/CallPrinter.h
+@@ -24,6 +24,7 @@ class ModulePass;
+ class CallGraphDOTPrinterPass : public PassInfoMixin<CallGraphDOTPrinterPass> {
+ public:
+   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
++  std::string encodePathStr(std::string);
+ };
+ 
+ /// Pass for viewing the call graph
+diff --git a/llvm/include/llvm/Transforms/Instrumentation/AddressSanitizer.h b/llvm/include/llvm/Transforms/Instrumentation/AddressSanitizer.h
+index f56ec6ff682f..911e613d55c0 100644
+--- a/llvm/include/llvm/Transforms/Instrumentation/AddressSanitizer.h
++++ b/llvm/include/llvm/Transforms/Instrumentation/AddressSanitizer.h
+@@ -52,6 +52,15 @@ private:
+   AsanDtorKind DestructorKind;
+ };
+ 
++class FishFuzzASanPass
++    : public PassInfoMixin<FishFuzzASanPass> {
++public:
++  explicit FishFuzzASanPass();
++  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
++  static bool isRequired() { return true; }
++
++};
++
+ struct ASanAccessInfo {
+   const int32_t Packed;
+   const uint8_t AccessSizeIndex;
+diff --git a/llvm/lib/Analysis/CallPrinter.cpp b/llvm/lib/Analysis/CallPrinter.cpp
+index 65e3184fad91..4e19a0234ea4 100644
+--- a/llvm/lib/Analysis/CallPrinter.cpp
++++ b/llvm/lib/Analysis/CallPrinter.cpp
+@@ -25,6 +25,10 @@
+ #include "llvm/Support/DOTGraphTraits.h"
+ #include "llvm/Support/GraphWriter.h"
+ 
++#include <stdlib.h>
++#include <fstream>
++#include <iostream>
++
+ using namespace llvm;
+ 
+ namespace llvm {
+@@ -252,6 +256,7 @@ void viewCallGraph(Module &M,
+ } // namespace
+ 
+ namespace llvm {
++/*
+ PreservedAnalyses CallGraphDOTPrinterPass::run(Module &M,
+                                                ModuleAnalysisManager &AM) {
+   FunctionAnalysisManager &FAM =
+@@ -265,6 +270,54 @@ PreservedAnalyses CallGraphDOTPrinterPass::run(Module &M,
+ 
+   return PreservedAnalyses::all();
+ }
++*/
++std::string CallGraphDOTPrinterPass::encodePathStr(std::string Path) {
++
++  std::string from = "/", to = ".";
++  size_t pos = 0;
++  while ((pos = Path.find(from)) != std::string::npos) {
++
++    if (pos == 0) Path.erase(pos, 1);
++    else Path.replace(pos, 1, to);
++  
++  }
++  return Path;
++
++}
++
++PreservedAnalyses CallGraphDOTPrinterPass::run(Module &M,
++                                               ModuleAnalysisManager &AM) {
++  FunctionAnalysisManager &FAM =
++      AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
++
++  auto LookupBFI = [&FAM](Function &F) {
++    return &FAM.getResult<BlockFrequencyAnalysis>(F);
++  };
++
++  std::string TempDir, Filename;
++  if (getenv("FF_TMP_DIR")) {
++
++    TempDir = getenv("FF_TMP_DIR");
++    Filename = TempDir + "/cg/" + encodePathStr(std::string(M.getModuleIdentifier())) + ".callgraph.dot";
++    
++  } else perror("Please set the FF_TMP_DIR before start!\n");
++
++  std::error_code EC;
++  raw_fd_ostream File(Filename, EC, sys::fs::OF_Text);
++
++  CallGraph CG(M);
++  CallGraphDOTInfo CFGInfo(&M, &CG, LookupBFI);
++
++  if (!EC)
++    WriteGraph(File, &CFGInfo);
++  else
++    errs() << "  error opening file for writing!";
++  // errs() << "\n";
++
++  // doCallGraphDOTPrinting(M, LookupBFI);
++
++  return PreservedAnalyses::all();
++}
+ 
+ PreservedAnalyses CallGraphViewerPass::run(Module &M,
+                                            ModuleAnalysisManager &AM) {
+diff --git a/llvm/lib/Transforms/Instrumentation/CMakeLists.txt b/llvm/lib/Transforms/Instrumentation/CMakeLists.txt
+index a4e09f6cc54d..567e7ffea3b2 100644
+--- a/llvm/lib/Transforms/Instrumentation/CMakeLists.txt
++++ b/llvm/lib/Transforms/Instrumentation/CMakeLists.txt
+@@ -1,4 +1,5 @@
+ add_llvm_component_library(LLVMInstrumentation
++  FishFuzzAddressSanitizer.cpp
+   AddressSanitizer.cpp
+   BoundsChecking.cpp
+   CGProfile.cpp
