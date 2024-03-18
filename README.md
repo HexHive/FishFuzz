@@ -21,6 +21,14 @@ For more details, check out our [paper](https://www.usenix.org/system/files/usen
 
 FishFuzz is accepted in USENIX Security Symposium 2023 and will occur with the paper accepted in Winter cycle.
 
+TuneFuzz is accepted in SBFT24@Fuzzing Workshop and rank 2nd place in final competition.
+
+## SBFT24
+
+To address the compatibility issues with FuzzBench, we implement a new extension TuneFuzz based on FF_{AFL++}.
+We submit TuneFuzz to SBFT24@Fuzzing competition and won 2nd place. The source is available at tunefuzz_sbft24 branch,
+and the configuration can be found at https://github.com/HexHive/fuzzbench-TuneFuzz.
+
 ## Repo Structure
 ```
 FishFuzz/
@@ -171,8 +179,8 @@ A: No, most of which are redundant, will remove them later.
 
 Q: Any plans for more benchmark intergration?
 
-A: Yes, we're working on fuzzbench intergration and you may find the configuration file in the repo later.
-But this intergration is still experimental.
+A: For vanilla FishFuzz, no. For TuneFuzz, yes!
+We have a tested FuzzBench intergration that is available at https://github.com/HexHive/fuzzbench-TuneFuzz.
 
 ## Contact
 
