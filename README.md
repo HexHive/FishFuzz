@@ -25,7 +25,7 @@ TuneFuzz is accepted in SBFT24@Fuzzing Workshop and rank 2nd place in final comp
 
 ## SBFT24
 
-To address the compatibility issues with FuzzBench, we implement a new extension TuneFuzz based on FF_{AFL++}.
+To address the compatibility issues with FuzzBench, we implement a new extension TuneFuzz based on FF_AFL++.
 We submit TuneFuzz to SBFT24@Fuzzing competition and won 2nd place. The source is available at tunefuzz_sbft24 branch,
 and the configuration can be found at https://github.com/HexHive/fuzzbench-TuneFuzz.
 
